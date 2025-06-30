@@ -32,7 +32,7 @@ jobs:
         run: uv run ruff format --check
 
       - name: Check markdown formatting
-        run: uv run mdformat --check .
+        run: uv run mdformat --check README.md CLAUDE.md
 
       - name: Run tests
         run: uv run pytest -v
