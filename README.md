@@ -49,17 +49,17 @@ Add to your `.cursor/settings.json`:
 
 ```json
 {
-  "mcp.servers": {
-      "smalltalk-validator": {
-        "command": "uv",
-        "args": [
-          "--directory",
-          "/path/to/smalltalk-validator-mcp-server",
-          "run",
-          "smalltalk-validator-mcp-server"
-        ]
-      }
+  "mcpServers": {
+    "smalltalk-validator": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/smalltalk-validator-mcp-server",
+        "run",
+        "smalltalk-validator-mcp-server"
+      ]
     }
+  }
 }
 ```
 
