@@ -27,6 +27,16 @@ without-method-body: true
 
 ## Installation
 
+### Quick install (uvx)
+
+Run directly without cloning:
+
+```bash
+uvx --from smalltalk-validator-mcp-server smalltalk-validator-mcp-server
+```
+
+### Development setup (git clone)
+
 ```bash
 git clone https://github.com/your-username/smalltalk-validator-mcp-server.git
 cd smalltalk-validator-mcp-server
@@ -37,6 +47,14 @@ uv sync
 
 ### Running the MCP Server
 
+- Using uvx (recommended for quick run):
+
+```bash
+uvx --from smalltalk-validator-mcp-server smalltalk-validator-mcp-server
+```
+
+- From a cloned repo:
+
 ```bash
 uv run smalltalk-validator-mcp-server
 ```
@@ -46,6 +64,19 @@ uv run smalltalk-validator-mcp-server
 #### Cursor Configuration
 
 Add to your `.cursor/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "smalltalk-validator": {
+      "command": "uvx",
+      "args": ["--from", "smalltalk-validator-mcp-server", "smalltalk-validator-mcp-server"]
+    }
+  }
+}
+```
+
+If you prefer using a local clone, use this instead:
 
 ```json
 {
@@ -66,6 +97,12 @@ Add to your `.cursor/settings.json`:
 #### Claude Code Configuration
 
 Add to your Claude Code settings:
+
+```bash
+claude mcp add smalltalk-validator -- uvx --from smalltalk-validator-mcp-server smalltalk-validator-mcp-server
+```
+
+Using a local clone instead:
 
 ```bash
 claude mcp add smalltalk-validator -- uv --directory /path/to/smalltalk-validator-mcp-server run smalltalk-validator-mcp-server
