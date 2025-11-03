@@ -5,8 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "fastmcp>=2.9.2",
-    "pytest>=8.4.1",
+    "fastmcp>=2.13.0.2",
+    "pytest>=8.4.2",
     "tonel-smalltalk-parser",
 ]
 
@@ -18,11 +18,10 @@ tonel-smalltalk-parser = { git = "https://github.com/mumez/tonel-smalltalk-parse
 
 [dependency-groups]
 dev = [
-    "mdformat>=0.7.22",
-    "mdformat-frontmatter>=2.0.8",
-    "mdformat-gfm>=0.4.1",
-    "pre-commit>=4.2.0",
-    "ruff>=0.12.1",
+    "mdformat>=1.0.0",
+    "mdformat-gfm>=1.0.0",
+    "pre-commit>=4.3.0",
+    "ruff>=0.14.3",
 ]
 
 [tool.uv]
@@ -57,3 +56,4 @@ line-ending = "auto"
 [tool.mdformat]
 wrap = 88
 end_of_line = "auto"
+exclude = [".venv", "*.egg-info", ".pytest_cache"]
