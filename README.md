@@ -32,7 +32,7 @@ without-method-body: true
 Run directly without cloning:
 
 ```bash
-uvx --from smalltalk-validator-mcp-server smalltalk-validator-mcp-server
+uvx --from git+https://github.com/mumez/smalltalk-validator-mcp-server.git@main smalltalk-validator-mcp-server
 ```
 
 ### Development setup (git clone)
@@ -50,7 +50,7 @@ uv sync
 - Using uvx (recommended for quick run):
 
 ```bash
-uvx --from smalltalk-validator-mcp-server smalltalk-validator-mcp-server
+uvx --from git+https://github.com/mumez/smalltalk-validator-mcp-server.git@main smalltalk-validator-mcp-server
 ```
 
 - From a cloned repo:
@@ -70,7 +70,11 @@ Add to your `.cursor/settings.json`:
   "mcpServers": {
     "smalltalk-validator": {
       "command": "uvx",
-      "args": ["--from", "smalltalk-validator-mcp-server", "smalltalk-validator-mcp-server"]
+      "args": [
+        "--from",
+        "git+https://github.com/mumez/smalltalk-validator-mcp-server.git@main",
+        "smalltalk-validator-mcp-server"
+      ]
     }
   }
 }
@@ -99,7 +103,7 @@ If you prefer using a local clone, use this instead:
 Add to your Claude Code settings:
 
 ```bash
-claude mcp add smalltalk-validator -- uvx --from smalltalk-validator-mcp-server smalltalk-validator-mcp-server
+claude mcp add smalltalk-validator -- uvx --from git+https://github.com/mumez/smalltalk-validator-mcp-server.git@main smalltalk-validator-mcp-server
 ```
 
 Using a local clone instead:
