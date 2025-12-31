@@ -7,6 +7,8 @@ from typing import Any
 from fastmcp import Context, FastMCP
 
 from .core import (
+    lint_tonel_smalltalk_from_file_impl,
+    lint_tonel_smalltalk_impl,
     validate_smalltalk_method_body_impl,
     validate_tonel_smalltalk_from_file_impl,
     validate_tonel_smalltalk_impl,
@@ -66,6 +68,34 @@ def validate_smalltalk_method_body(
         Dictionary with validation results including success status and error details
     """
     return validate_smalltalk_method_body_impl(method_body_content)
+
+
+@app.tool("lint_tonel_smalltalk_from_file")
+def lint_tonel_smalltalk_from_file(_: Context, file_path: str) -> dict[str, Any]:
+    """
+    Lint Tonel formatted Smalltalk source code from a file.
+
+    Args:
+        file_path: Path to the Tonel file to lint
+
+    Returns:
+        Dictionary with lint results including issues found
+    """
+    return lint_tonel_smalltalk_from_file_impl(file_path)
+
+
+@app.tool("lint_tonel_smalltalk")
+def lint_tonel_smalltalk(_: Context, file_content: str) -> dict[str, Any]:
+    """
+    Lint Tonel formatted Smalltalk source code from content string.
+
+    Args:
+        file_content: The Tonel file content as a string
+
+    Returns:
+        Dictionary with lint results including issues found
+    """
+    return lint_tonel_smalltalk_impl(file_content)
 
 
 def main():

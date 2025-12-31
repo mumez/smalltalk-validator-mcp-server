@@ -7,6 +7,12 @@ import tempfile
 from unittest.mock import Mock, patch
 
 from smalltalk_validator_mcp_server.core import (
+    lint_tonel_smalltalk_from_file_impl as lint_tonel_smalltalk_from_file,
+)
+from smalltalk_validator_mcp_server.core import (
+    lint_tonel_smalltalk_impl as lint_tonel_smalltalk,
+)
+from smalltalk_validator_mcp_server.core import (
     validate_smalltalk_method_body_impl as validate_smalltalk_method_body,
 )
 from smalltalk_validator_mcp_server.core import (
@@ -240,3 +246,163 @@ class TestValidateSmalltalkMethodBody:
         assert "Method validation failed: Method syntax error" in result["error"]
         assert result["exception"] == "SyntaxError"
         assert result["content_length"] == len(method_body)
+
+
+class TestLintTonelSmalltalkFromFile:
+    """Tests for lint_tonel_smalltalk_from_file function."""
+
+    def test_file_not_found(self):
+        """Test linting when file doesn't exist."""
+        result = lint_tonel_smalltalk_from_file("/non/existent/file.st")
+
+        assert result["success"] is False
+        assert "File not found" in result["error"]
+        assert result["file_path"] == "/non/existent/file.st"
+
+    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    def test_successful_linting_no_issues(self, mock_linter_class):
+        """Test successful linting with no issues."""
+        mock_linter = Mock()
+        mock_linter.lint_from_file.return_value = []
+        mock_linter.warnings = 0
+        mock_linter.errors = 0
+        mock_linter_class.return_value = mock_linter
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".st", delete=False) as f:
+            f.write("Class { #name : #TestClass }")
+            temp_path = f.name
+
+        try:
+            result = lint_tonel_smalltalk_from_file(temp_path)
+
+            assert result["success"] is True
+            assert result["file_path"] == temp_path
+            assert result["issues"] == []
+            assert result["issue_count"] == 0
+            assert result["warnings"] == 0
+            assert result["errors"] == 0
+        finally:
+            os.unlink(temp_path)
+
+    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    def test_linting_with_issues(self, mock_linter_class):
+        """Test linting that returns issues."""
+        mock_issue = Mock()
+        mock_issue.severity = "warning"
+        mock_issue.message = "Long method detected"
+        mock_issue.line_number = 5
+
+        mock_linter = Mock()
+        mock_linter.lint_from_file.return_value = [mock_issue]
+        mock_linter.warnings = 1
+        mock_linter.errors = 0
+        mock_linter_class.return_value = mock_linter
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".st", delete=False) as f:
+            f.write("Class { #name : #TestClass }")
+            temp_path = f.name
+
+        try:
+            result = lint_tonel_smalltalk_from_file(temp_path)
+
+            assert result["success"] is True
+            assert result["issue_count"] == 1
+            assert result["warnings"] == 1
+            assert result["errors"] == 0
+            assert len(result["issues"]) == 1
+            assert result["issues"][0]["severity"] == "warning"
+            assert result["issues"][0]["message"] == "Long method detected"
+            assert result["issues"][0]["line"] == 5
+        finally:
+            os.unlink(temp_path)
+
+    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    def test_linter_exception(self, mock_linter_class):
+        """Test handling of linter exceptions."""
+        mock_linter = Mock()
+        mock_linter.lint_from_file.side_effect = ValueError("Linter error")
+        mock_linter_class.return_value = mock_linter
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".st", delete=False) as f:
+            f.write("Test content")
+            temp_path = f.name
+
+        try:
+            result = lint_tonel_smalltalk_from_file(temp_path)
+
+            assert result["success"] is False
+            assert "Linting failed: Linter error" in result["error"]
+            assert result["exception"] == "ValueError"
+        finally:
+            os.unlink(temp_path)
+
+
+class TestLintTonelSmalltalk:
+    """Tests for lint_tonel_smalltalk function."""
+
+    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    def test_successful_linting(self, mock_linter_class):
+        """Test successful content linting."""
+        mock_linter = Mock()
+        mock_linter.lint.return_value = []
+        mock_linter.warnings = 0
+        mock_linter.errors = 0
+        mock_linter_class.return_value = mock_linter
+
+        content = "Class { #name : #TestClass }"
+        result = lint_tonel_smalltalk(content)
+
+        assert result["success"] is True
+        assert result["content_length"] == len(content)
+        assert result["issues"] == []
+        assert result["issue_count"] == 0
+        assert result["warnings"] == 0
+        assert result["errors"] == 0
+        mock_linter.lint.assert_called_once_with(content)
+
+    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    def test_linting_with_multiple_issues(self, mock_linter_class):
+        """Test linting with multiple issues."""
+        mock_issue1 = Mock()
+        mock_issue1.severity = "error"
+        mock_issue1.message = "Invalid class name"
+        mock_issue1.line_number = 1
+
+        mock_issue2 = Mock()
+        mock_issue2.severity = "warning"
+        mock_issue2.message = "Too many instance variables"
+        mock_issue2.line_number = 3
+
+        mock_linter = Mock()
+        mock_linter.lint.return_value = [mock_issue1, mock_issue2]
+        mock_linter.warnings = 1
+        mock_linter.errors = 1
+        mock_linter_class.return_value = mock_linter
+
+        content = "Class { #name : #testClass }"
+        result = lint_tonel_smalltalk(content)
+
+        assert result["success"] is True
+        assert result["issue_count"] == 2
+        assert result["warnings"] == 1
+        assert result["errors"] == 1
+        assert len(result["issues"]) == 2
+        assert result["issues"][0]["severity"] == "error"
+        assert result["issues"][0]["line"] == 1
+        assert result["issues"][1]["severity"] == "warning"
+        assert result["issues"][1]["line"] == 3
+
+    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    def test_content_linting_exception(self, mock_linter_class):
+        """Test handling of content linting exceptions."""
+        mock_linter = Mock()
+        mock_linter.lint.side_effect = RuntimeError("Content linting error")
+        mock_linter_class.return_value = mock_linter
+
+        content = "Test content"
+        result = lint_tonel_smalltalk(content)
+
+        assert result["success"] is False
+        assert "Linting failed: Content linting error" in result["error"]
+        assert result["exception"] == "RuntimeError"
+        assert result["content_length"] == len(content)
