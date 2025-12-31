@@ -8,11 +8,18 @@ This is an MCP (Model Context Protocol) server project for validating Tonel form
 
 ## Architecture
 
-The project implements three main validation tools:
+The project implements five main tools:
+
+### Validation Tools
 
 - `validate_tonel_smalltalk_from_file(file_path, options)` - Validate Tonel formatted Smalltalk source code from a file
 - `validate_tonel_smalltalk(file_content, options)` - Validate Tonel formatted Smalltalk source code from content string
 - `validate_smalltalk_method_body(method_body_content)` - Validate a Smalltalk method body for syntax correctness
+
+### Linting Tools
+
+- `lint_tonel_smalltalk_from_file(file_path)` - Lint Tonel formatted Smalltalk source code from a file
+- `lint_tonel_smalltalk(file_content)` - Lint Tonel formatted Smalltalk source code from content string
 
 ### Validation Options
 
@@ -44,7 +51,7 @@ Pre-commit hooks automatically run before each commit to ensure code quality:
 
 ## Development Status
 
-Project is implemented and functional. The MCP server provides three validation tools for Smalltalk code using FastMCP framework and tonel-smalltalk-parser.
+Project is implemented and functional. The MCP server provides five tools (three validation tools and two linting tools) for Smalltalk code using FastMCP framework and tonel-smalltalk-parser.
 
 ## Dependencies
 

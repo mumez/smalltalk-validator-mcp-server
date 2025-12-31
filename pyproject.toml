@@ -1,13 +1,12 @@
 [project]
 name = "smalltalk-validator-mcp-server"
 version = "0.1.2"
-description = "Add your description here"
+description = "MCP server for validating and linting Tonel formatted Smalltalk source code"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "fastmcp>=2.13.0.2",
-    "pytest>=8.4.2",
-    "tonel-smalltalk-parser",
+    "fastmcp>=2.14.1",
+    "tonel-smalltalk-parser>=0.2.2",
 ]
 
 [project.scripts]
@@ -20,8 +19,9 @@ tonel-smalltalk-parser = { git = "https://github.com/mumez/tonel-smalltalk-parse
 dev = [
     "mdformat>=1.0.0",
     "mdformat-gfm>=1.0.0",
-    "pre-commit>=4.3.0",
-    "ruff>=0.14.3",
+    "pre-commit>=4.5.1",
+    "pytest>=9.0.2",
+    "ruff>=0.14.10",
 ]
 
 [tool.uv]

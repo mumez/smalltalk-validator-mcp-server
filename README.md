@@ -1,29 +1,49 @@
 # smalltalk-validator-mcp-server
 
-A simple MCP server for validating Tonel formatted Smalltalk source code using [tonel-smalltalk-parser](https://github.com/mumez/tonel-smalltalk-parser).
+A simple MCP server for validating and linting Tonel formatted Smalltalk source code using
+[tonel-smalltalk-parser](https://github.com/mumez/tonel-smalltalk-parser).
 
-- The purpose is that we would like to validate AI-generated tonel files and Smalltalk method definitions before loading them into a real Smalltalk environment.
+- The purpose is that we would like to validate and lint AI-generated tonel files and
+  Smalltalk method definitions before loading them into a real Smalltalk environment.
 
 ## Tools
 
-### validate_tonel_smalltalk_from_file(file_path, options)
+### Validation Tools
+
+#### validate_tonel_smalltalk_from_file(file_path, options)
 
 - Validate Tonel formatted Smalltalk source code from a file
 
-### validate_tonel_smalltalk(file_content, options)
+#### validate_tonel_smalltalk(file_content, options)
 
 - Validate Tonel formatted Smalltalk source code from content string
 
-### validate_smalltalk_method_body(method_body_content)
+#### validate_smalltalk_method_body(method_body_content)
 
 - Validate a Smalltalk method body for syntax correctness
 
-### options
+#### Validation Options
 
 ```
 without-method-body: true
     if true, it only validates tonel structure only (mainly for testing)
 ```
+
+### Linting Tools
+
+#### lint_tonel_smalltalk_from_file(file_path)
+
+- Lint Tonel formatted Smalltalk source code from a file
+- Checks for best practices and style issues such as:
+  - Class naming conventions
+  - Excessive instance variables
+  - Method length
+  - Direct instance variable access
+
+#### lint_tonel_smalltalk(file_content)
+
+- Lint Tonel formatted Smalltalk source code from content string
+- Provides the same linting checks as lint_tonel_smalltalk_from_file
 
 ## Installation
 
@@ -148,6 +168,52 @@ validate_tonel_smalltalk(tonel_content)
 ```python
 method_body = "^ self name asUppercase"
 validate_smalltalk_method_body(method_body)
+```
+
+#### Lint Tonel file from filesystem
+
+```python
+# Lint a Tonel file for best practices and style issues
+result = lint_tonel_smalltalk_from_file("/path/to/MyClass.st")
+
+# Example result:
+# {
+#   "success": true,
+#   "file_path": "/path/to/MyClass.st",
+#   "issues": [
+#     {
+#       "severity": "warning",
+#       "message": "Method 'longMethod' long: 18 lines (recommended: 15)",
+#       "line": null
+#     }
+#   ],
+#   "issue_count": 1,
+#   "warnings": 0,
+#   "errors": 0
+# }
+```
+
+#### Lint Tonel content directly
+
+```python
+tonel_content = """
+Class {
+    #name : #MyClass,
+    #superclass : #Object,
+    #instVars : [
+        'name',
+        'age'
+    ],
+    #category : #'My-Package'
+}
+
+{ #category : #accessing }
+MyClass >> getName [
+    ^ name
+]
+"""
+
+result = lint_tonel_smalltalk(tonel_content)
 ```
 
 ## Development
