@@ -1664,7 +1664,7 @@ wheels = [
 
 [[package]]
 name = "smalltalk-validator-mcp-server"
-version = "0.1.2"
+version = "0.2.2"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
