@@ -184,7 +184,9 @@ result = lint_tonel_smalltalk_from_file("/path/to/MyClass.st")
 #     {
 #       "severity": "warning",
 #       "message": "Method 'longMethod' long: 18 lines (recommended: 15)",
-#       "line_number": null
+#       "class_name": "MyClass",
+#       "selector": "longMethod",
+#       "is_class_method": false
 #     }
 #   ],
 #   "issues_count": 1,
