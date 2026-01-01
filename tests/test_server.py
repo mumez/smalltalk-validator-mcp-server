@@ -290,7 +290,9 @@ class TestLintTonelSmalltalkFromFile:
         mock_issue = Mock()
         mock_issue.severity = "warning"
         mock_issue.message = "Long method detected"
-        mock_issue.line_number = 5
+        mock_issue.class_name = "TestClass"
+        mock_issue.selector = "longMethod"
+        mock_issue.is_class_method = False
 
         mock_linter = Mock()
         mock_linter.lint_from_file.return_value = [mock_issue]
@@ -312,7 +314,9 @@ class TestLintTonelSmalltalkFromFile:
             assert len(result["issue_list"]) == 1
             assert result["issue_list"][0]["severity"] == "warning"
             assert result["issue_list"][0]["message"] == "Long method detected"
-            assert result["issue_list"][0]["line_number"] == 5
+            assert result["issue_list"][0]["class_name"] == "TestClass"
+            assert result["issue_list"][0]["selector"] == "longMethod"
+            assert result["issue_list"][0]["is_class_method"] is False
         finally:
             os.unlink(temp_path)
 
@@ -366,12 +370,16 @@ class TestLintTonelSmalltalk:
         mock_issue1 = Mock()
         mock_issue1.severity = "error"
         mock_issue1.message = "Invalid class name"
-        mock_issue1.line_number = 1
+        mock_issue1.class_name = "testClass"
+        mock_issue1.selector = None
+        mock_issue1.is_class_method = None
 
         mock_issue2 = Mock()
         mock_issue2.severity = "warning"
         mock_issue2.message = "Too many instance variables"
-        mock_issue2.line_number = 3
+        mock_issue2.class_name = "testClass"
+        mock_issue2.selector = None
+        mock_issue2.is_class_method = None
 
         mock_linter = Mock()
         mock_linter.lint.return_value = [mock_issue1, mock_issue2]
@@ -388,9 +396,9 @@ class TestLintTonelSmalltalk:
         assert result["errors_count"] == 1
         assert len(result["issue_list"]) == 2
         assert result["issue_list"][0]["severity"] == "error"
-        assert result["issue_list"][0]["line_number"] == 1
+        assert result["issue_list"][0]["class_name"] == "testClass"
         assert result["issue_list"][1]["severity"] == "warning"
-        assert result["issue_list"][1]["line_number"] == 3
+        assert result["issue_list"][1]["class_name"] == "testClass"
 
     @patch("smalltalk_validator_mcp_server.core.TonelLinter")
     def test_content_linting_exception(self, mock_linter_class):

@@ -14,6 +14,28 @@ from tonel_smalltalk_parser import (
 )
 
 
+def _convert_lint_issues_to_dicts(issues: list) -> list[dict[str, Any]]:
+    """
+    Convert LintIssue objects to dictionaries.
+
+    Args:
+        issues: List of LintIssue objects
+
+    Returns:
+        List of dictionaries representing the issues
+    """
+    return [
+        {
+            "severity": issue.severity,
+            "message": issue.message,
+            "class_name": issue.class_name,
+            "selector": issue.selector,
+            "is_class_method": issue.is_class_method,
+        }
+        for issue in issues
+    ]
+
+
 def validate_tonel_smalltalk_from_file_impl(
     file_path: str, options: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -167,14 +189,7 @@ def lint_tonel_smalltalk_from_file_impl(file_path: str) -> dict[str, Any]:
         issues = linter.lint_from_file(Path(file_path))
 
         # Convert LintIssue objects to dictionaries
-        issue_list = [
-            {
-                "severity": issue.severity,
-                "message": issue.message,
-                "line_number": issue.line_number,
-            }
-            for issue in issues
-        ]
+        issue_list = _convert_lint_issues_to_dicts(issues)
 
         return {
             "success": True,
@@ -209,14 +224,7 @@ def lint_tonel_smalltalk_impl(file_content: str) -> dict[str, Any]:
         issues = linter.lint(file_content)
 
         # Convert LintIssue objects to dictionaries
-        issue_list = [
-            {
-                "severity": issue.severity,
-                "message": issue.message,
-                "line_number": issue.line_number,
-            }
-            for issue in issues
-        ]
+        issue_list = _convert_lint_issues_to_dicts(issues)
 
         return {
             "success": True,
