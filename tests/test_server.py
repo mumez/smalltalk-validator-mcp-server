@@ -277,10 +277,10 @@ class TestLintTonelSmalltalkFromFile:
 
             assert result["success"] is True
             assert result["file_path"] == temp_path
-            assert result["issues"] == []
-            assert result["issue_count"] == 0
-            assert result["warnings"] == 0
-            assert result["errors"] == 0
+            assert result["issue_list"] == []
+            assert result["issues_count"] == 0
+            assert result["warnings_count"] == 0
+            assert result["errors_count"] == 0
         finally:
             os.unlink(temp_path)
 
@@ -306,13 +306,13 @@ class TestLintTonelSmalltalkFromFile:
             result = lint_tonel_smalltalk_from_file(temp_path)
 
             assert result["success"] is True
-            assert result["issue_count"] == 1
-            assert result["warnings"] == 1
-            assert result["errors"] == 0
-            assert len(result["issues"]) == 1
-            assert result["issues"][0]["severity"] == "warning"
-            assert result["issues"][0]["message"] == "Long method detected"
-            assert result["issues"][0]["line"] == 5
+            assert result["issues_count"] == 1
+            assert result["warnings_count"] == 1
+            assert result["errors_count"] == 0
+            assert len(result["issue_list"]) == 1
+            assert result["issue_list"][0]["severity"] == "warning"
+            assert result["issue_list"][0]["message"] == "Long method detected"
+            assert result["issue_list"][0]["line_number"] == 5
         finally:
             os.unlink(temp_path)
 
@@ -354,10 +354,10 @@ class TestLintTonelSmalltalk:
 
         assert result["success"] is True
         assert result["content_length"] == len(content)
-        assert result["issues"] == []
-        assert result["issue_count"] == 0
-        assert result["warnings"] == 0
-        assert result["errors"] == 0
+        assert result["issue_list"] == []
+        assert result["issues_count"] == 0
+        assert result["warnings_count"] == 0
+        assert result["errors_count"] == 0
         mock_linter.lint.assert_called_once_with(content)
 
     @patch("smalltalk_validator_mcp_server.core.TonelLinter")
@@ -383,14 +383,14 @@ class TestLintTonelSmalltalk:
         result = lint_tonel_smalltalk(content)
 
         assert result["success"] is True
-        assert result["issue_count"] == 2
-        assert result["warnings"] == 1
-        assert result["errors"] == 1
-        assert len(result["issues"]) == 2
-        assert result["issues"][0]["severity"] == "error"
-        assert result["issues"][0]["line"] == 1
-        assert result["issues"][1]["severity"] == "warning"
-        assert result["issues"][1]["line"] == 3
+        assert result["issues_count"] == 2
+        assert result["warnings_count"] == 1
+        assert result["errors_count"] == 1
+        assert len(result["issue_list"]) == 2
+        assert result["issue_list"][0]["severity"] == "error"
+        assert result["issue_list"][0]["line_number"] == 1
+        assert result["issue_list"][1]["severity"] == "warning"
+        assert result["issue_list"][1]["line_number"] == 3
 
     @patch("smalltalk_validator_mcp_server.core.TonelLinter")
     def test_content_linting_exception(self, mock_linter_class):

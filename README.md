@@ -180,16 +180,16 @@ result = lint_tonel_smalltalk_from_file("/path/to/MyClass.st")
 # {
 #   "success": true,
 #   "file_path": "/path/to/MyClass.st",
-#   "issues": [
+#   "issue_list": [
 #     {
 #       "severity": "warning",
 #       "message": "Method 'longMethod' long: 18 lines (recommended: 15)",
-#       "line": null
+#       "line_number": null
 #     }
 #   ],
-#   "issue_count": 1,
-#   "warnings": 0,
-#   "errors": 0
+#   "issues_count": 1,
+#   "warnings_count": 0,
+#   "errors_count": 0
 # }
 ```
 

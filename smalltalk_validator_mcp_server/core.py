@@ -167,11 +167,11 @@ def lint_tonel_smalltalk_from_file_impl(file_path: str) -> dict[str, Any]:
         issues = linter.lint_from_file(Path(file_path))
 
         # Convert LintIssue objects to dictionaries
-        issues_list = [
+        issue_list = [
             {
                 "severity": issue.severity,
                 "message": issue.message,
-                "line": issue.line_number,
+                "line_number": issue.line_number,
             }
             for issue in issues
         ]
@@ -179,10 +179,10 @@ def lint_tonel_smalltalk_from_file_impl(file_path: str) -> dict[str, Any]:
         return {
             "success": True,
             "file_path": file_path,
-            "issues": issues_list,
-            "issue_count": len(issues_list),
-            "warnings": linter.warnings,
-            "errors": linter.errors,
+            "issue_list": issue_list,
+            "warnings_count": linter.warnings,
+            "errors_count": linter.errors,
+            "issues_count": len(issue_list),
         }
 
     except Exception as e:
@@ -209,11 +209,11 @@ def lint_tonel_smalltalk_impl(file_content: str) -> dict[str, Any]:
         issues = linter.lint(file_content)
 
         # Convert LintIssue objects to dictionaries
-        issues_list = [
+        issue_list = [
             {
                 "severity": issue.severity,
                 "message": issue.message,
-                "line": issue.line_number,
+                "line_number": issue.line_number,
             }
             for issue in issues
         ]
@@ -221,10 +221,10 @@ def lint_tonel_smalltalk_impl(file_content: str) -> dict[str, Any]:
         return {
             "success": True,
             "content_length": len(file_content),
-            "issues": issues_list,
-            "issue_count": len(issues_list),
-            "warnings": linter.warnings,
-            "errors": linter.errors,
+            "issue_list": issue_list,
+            "warnings_count": linter.warnings,
+            "errors_count": linter.errors,
+            "issues_count": len(issue_list),
         }
 
     except Exception as e:
