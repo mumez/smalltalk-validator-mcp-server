@@ -142,7 +142,47 @@ However, tree-sitter's CST can serve as a **better foundation** for linting:
 - **Native dependency**: Requires C compiler at build time (current parser is pure Python)
 - **Maturity**: v0.0.1 with 32 test cases vs current parser validated against 223 real-world files
 
-## 5. Recommended Approach
+## 5. Design Decision: Error Info Format
+
+### Option A: Maintain Current API Compatibility
+
+Convert tree-sitter parse results into the current `{"reason", "line", "error_text"}` format via an adapter layer.
+
+```json
+{"valid": false, "error": {"reason": "Unexpected token", "line": 5, "error_text": "..."}}
+```
+
+### Option B: Return tree-sitter Native Results (Recommended)
+
+Since MCP consumers are AI agents, they can interpret any structured error format. Return tree-sitter's richer parse results directly:
+
+```json
+{
+  "valid": false,
+  "errors": [
+    {
+      "type": "ERROR",
+      "start_point": [4, 8],
+      "end_point": [4, 15],
+      "text": "++ value",
+      "parent_type": "method_body",
+      "context": "Counter >> increment"
+    }
+  ]
+}
+```
+
+**Advantages of Option B:**
+
+- Multiple errors reported at once (current parser returns only the first error)
+- More precise location info (line + column, start + end range)
+- Structural context via `parent_type` -- tells the agent *where* in the syntax tree the error occurred
+- No adapter layer needed -- reduces implementation effort
+- AI agents are equally capable of interpreting either format
+
+**Impact on effort:** Eliminates the validation adapter implementation task, reducing overall effort by approximately 15-20%.
+
+## 6. Recommended Approach
 
 **Conclusion: Full replacement is premature at this point. A phased approach is recommended.**
 
@@ -152,10 +192,11 @@ However, tree-sitter's CST can serve as a **better foundation** for linting:
 - Add `pyproject.toml` for pip-installable distribution
 - Verify compatibility with py-tree-sitter v0.25.x
 
-### Phase 2: Adapter Layer PoC
+### Phase 2: Integration PoC
 
-- Implement adapter that converts tree-sitter parse results to `(bool, error_info)` format
-- Run identical test cases against both parsers in parallel and compare results
+- Implement thin wrapper that parses via tree-sitter and collects ERROR/MISSING nodes
+- Return tree-sitter native error info (Option B) rather than converting to legacy format
+- Run identical test cases against both parsers in parallel and compare validation outcomes (valid/invalid)
 - Evaluate `SmalltalkParser` workaround (synthetic wrapping vs grammar modification)
 
 ### Phase 3: Linter Migration
@@ -167,8 +208,11 @@ However, tree-sitter's CST can serve as a **better foundation** for linting:
 
 - Ensure sufficient test coverage and real-world validation
 - Switch dependency from `tonel-smalltalk-parser` to `tree-sitter` + `tree-sitter-tonel-smalltalk`
+- Update existing tests to expect new error format
 
-## 6. Effort Estimation
+## 7. Effort Estimation
+
+### With API-compatible adapter (Option A)
 
 | Task | Effort |
 |------|--------|
@@ -178,5 +222,16 @@ However, tree-sitter's CST can serve as a **better foundation** for linting:
 | Linter migration (4 rules) | Medium |
 | Test suite and regression testing | Medium |
 | **Total** | **Medium-Large** |
+
+### With tree-sitter native results (Option B, recommended)
+
+| Task | Effort |
+|------|--------|
+| Add Python bindings (tree-sitter-tonel-smalltalk side) | Small |
+| Validation wrapper (ERROR node collection only) | **Small** |
+| Method body standalone parsing support | Small-Medium |
+| Linter migration (4 rules) | Medium |
+| Test suite and regression testing | Small-Medium |
+| **Total** | **Medium** |
 
 Completing through Phase 2 (PoC) will provide a more accurate assessment of full replacement feasibility. Starting with the Python binding addition and a simple parallel comparison is recommended.
