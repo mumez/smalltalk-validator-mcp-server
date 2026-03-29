@@ -182,9 +182,73 @@ Since MCP consumers are AI agents, they can interpret any structured error forma
 
 **Impact on effort:** Eliminates the validation adapter implementation task, reducing overall effort by approximately 15-20%.
 
-## 6. Recommended Approach
+## 6. Implementation Strategy: In-place Replacement vs New v2 Project
 
-**Conclusion: Full replacement is premature at this point. A phased approach is recommended.**
+### Option X: In-place replacement in existing project
+
+Modify the current `smalltalk-validator-mcp-server` to use tree-sitter instead of `tonel-smalltalk-parser`.
+
+### Option Y: New `smalltalk-validator-mcp-server-v2` project
+
+Create a fresh project built on tree-sitter from the start.
+
+### Comparison
+
+The current project is very small (~920 lines total including tests and config):
+
+| File | Lines |
+|------|-------|
+| core.py (all business logic) | 244 |
+| server.py (MCP tool definitions) | 107 |
+| test_server.py (all tests) | 416 |
+| CI / pyproject.toml / pre-commit | 130 |
+
+| Item | In-place (Option X) | New v2 (Option Y) |
+|------|---------------------|-------------------|
+| tree-sitter Python bindings | Same | Same |
+| Validation logic | Swap parser calls in core.py (tens of lines) | Write equivalent from scratch (same amount) |
+| MCP tool definitions | Reuse server.py as-is | Rewrite (near copy) |
+| Linter migration | Same | Same |
+| Tests | Update expected values | Write from scratch (similar volume, can reuse fixtures) |
+| Project scaffolding | **Not needed** (already exists) | pyproject.toml, CI, pre-commit, README, CLAUDE.md |
+| Release / operations | Transparent to existing users | New repo, migration notice needed |
+
+**Conclusion: Effort is nearly identical; Option Y adds slight overhead for scaffolding and migration.**
+
+The existing codebase is too small for "rewrite cost" to be a factor. The parser-touching code in `core.py` is only the `parser = ...` and `parser.validate(...)` lines in each function -- a few dozen lines at most.
+
+### When Option Y (v2) makes more sense
+
+A new project is justified if the **scope expands significantly** beyond parser replacement:
+
+- New MCP tools leveraging the CST (e.g., `get_syntax_tree`, `find_methods`, `rename_symbol`)
+- Fundamentally different tool interface design
+- Need to run v1 and v2 in parallel for gradual migration
+
+## 7. Scope Boundary: MCP Server vs LSP
+
+tree-sitter-tonel-smalltalk is well-suited for both MCP validation and LSP (Language Server Protocol) implementation. However, these should be **separate projects**:
+
+| Concern | MCP Server | LSP Server |
+|---------|-----------|------------|
+| Consumer | AI agents (Claude, etc.) | Editors (VS Code, Neovim, etc.) |
+| Interaction model | Stateless tool calls | Stateful session with open documents |
+| Key capabilities | Validate, lint, return structured results | Diagnostics, completion, hover, go-to-definition, highlighting |
+| tree-sitter usage | Parse -> check ERROR nodes -> return result | Incremental parse on every keystroke, query-based highlighting |
+| Real-time requirements | None (batch) | Yes (sub-100ms response) |
+
+**Recommendation: Keep LSP as a separate project.**
+
+- The LSP server would directly depend on `tree-sitter-tonel-smalltalk` and `py-tree-sitter`
+- It could also use `queries/highlights.scm` already provided in tree-sitter-tonel-smalltalk
+- The MCP server stays focused on validation/linting for AI agent workflows
+- Both projects share the same tree-sitter grammar, but their architectures are fundamentally different
+
+Attempting to combine MCP + LSP in one project would conflate two very different runtime models and add unnecessary complexity to both.
+
+## 8. Recommended Approach
+
+**Conclusion: Replace in-place (Option X) with tree-sitter native error format (Option B). Keep LSP separate.**
 
 ### Phase 1: Add Python Bindings to tree-sitter-tonel-smalltalk
 
@@ -210,7 +274,13 @@ Since MCP consumers are AI agents, they can interpret any structured error forma
 - Switch dependency from `tonel-smalltalk-parser` to `tree-sitter` + `tree-sitter-tonel-smalltalk`
 - Update existing tests to expect new error format
 
-## 7. Effort Estimation
+### Future: LSP Server (separate project)
+
+- Create a dedicated LSP server project using tree-sitter-tonel-smalltalk
+- Leverage incremental parsing and `queries/highlights.scm`
+- Independent release cycle from the MCP server
+
+## 9. Effort Estimation
 
 ### With API-compatible adapter (Option A)
 
