@@ -6,9 +6,9 @@ import os
 from pathlib import Path
 from typing import Any
 
+from smalltalk_validator_mcp_server.linter import TonelCSTLinter
 from smalltalk_validator_mcp_server.parser import (
     SmalltalkMethodParser,
-    TonelCSTLinter,
     TonelTreeSitterParser,
 )
 
