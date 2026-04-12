@@ -6,24 +6,14 @@ import os
 from pathlib import Path
 from typing import Any
 
-from tonel_smalltalk_linter.linter import TonelLinter
-from tonel_smalltalk_parser import (
-    SmalltalkParser,
-    TonelFullParser,
-    TonelParser,
+from smalltalk_validator_mcp_server.linter import TonelCSTLinter
+from smalltalk_validator_mcp_server.parser import (
+    SmalltalkMethodParser,
+    TonelTreeSitterParser,
 )
 
 
 def _convert_lint_issues_to_dicts(issues: list) -> list[dict[str, Any]]:
-    """
-    Convert LintIssue objects to dictionaries.
-
-    Args:
-        issues: List of LintIssue objects
-
-    Returns:
-        List of dictionaries representing the issues
-    """
     return [
         {
             "severity": issue.severity,
@@ -61,21 +51,17 @@ def validate_tonel_smalltalk_from_file_impl(
         options = options or {}
         without_method_body = options.get("without-method-body", False)
 
-        if without_method_body:
-            parser = TonelParser()
-        else:
-            parser = TonelFullParser()
+        parser = TonelTreeSitterParser(ignore_method_body_errors=without_method_body)
+        parse_result = parser.parse_from_file(file_path)
 
-        is_valid, error_info = parser.validate_from_file(file_path)
-
-        result = {
-            "valid": is_valid,
+        result: dict[str, Any] = {
+            "valid": parse_result["valid"],
             "file_path": file_path,
             "parser_type": "tonel_only" if without_method_body else "full",
         }
 
-        if error_info:
-            result["error"] = error_info
+        if parse_result["errors"]:
+            result["errors"] = parse_result["errors"]
 
         return result
 
@@ -106,21 +92,17 @@ def validate_tonel_smalltalk_impl(
         options = options or {}
         without_method_body = options.get("without-method-body", False)
 
-        if without_method_body:
-            parser = TonelParser()
-        else:
-            parser = TonelFullParser()
+        parser = TonelTreeSitterParser(ignore_method_body_errors=without_method_body)
+        parse_result = parser.parse(file_content)
 
-        is_valid, error_info = parser.validate(file_content)
-
-        result = {
-            "valid": is_valid,
+        result: dict[str, Any] = {
+            "valid": parse_result["valid"],
             "content_length": len(file_content),
             "parser_type": "tonel_only" if without_method_body else "full",
         }
 
-        if error_info:
-            result["error"] = error_info
+        if parse_result["errors"]:
+            result["errors"] = parse_result["errors"]
 
         return result
 
@@ -144,17 +126,17 @@ def validate_smalltalk_method_body_impl(method_body_content: str) -> dict[str, A
         Dictionary with validation results including success status and error details
     """
     try:
-        parser = SmalltalkParser()
-        is_valid, error_info = parser.validate(method_body_content)
+        parser = SmalltalkMethodParser()
+        parse_result = parser.parse(method_body_content)
 
-        result = {
-            "valid": is_valid,
+        result: dict[str, Any] = {
+            "valid": parse_result["valid"],
             "content_length": len(method_body_content),
             "parser_type": "smalltalk_method",
         }
 
-        if error_info:
-            result["error"] = error_info
+        if parse_result["errors"]:
+            result["errors"] = parse_result["errors"]
 
         return result
 
@@ -185,10 +167,9 @@ def lint_tonel_smalltalk_from_file_impl(file_path: str) -> dict[str, Any]:
                 "file_path": file_path,
             }
 
-        linter = TonelLinter()
+        linter = TonelCSTLinter()
         issues = linter.lint_from_file(Path(file_path))
 
-        # Convert LintIssue objects to dictionaries
         issue_list = _convert_lint_issues_to_dicts(issues)
 
         return {
@@ -220,10 +201,9 @@ def lint_tonel_smalltalk_impl(file_content: str) -> dict[str, Any]:
         Dictionary with lint results including issues found
     """
     try:
-        linter = TonelLinter()
+        linter = TonelCSTLinter()
         issues = linter.lint(file_content)
 
-        # Convert LintIssue objects to dictionaries
         issue_list = _convert_lint_issues_to_dicts(issues)
 
         return {

@@ -34,11 +34,11 @@ class TestValidateTonelSmalltalkFromFile:
         assert "File not found" in result["error"]
         assert result["file_path"] == "/non/existent/file.st"
 
-    @patch("smalltalk_validator_mcp_server.core.TonelFullParser")
+    @patch("smalltalk_validator_mcp_server.core.TonelTreeSitterParser")
     def test_successful_validation_full_parser(self, mock_parser_class):
         """Test successful validation with full parser."""
         mock_parser = Mock()
-        mock_parser.validate_from_file.return_value = (True, None)
+        mock_parser.parse_from_file.return_value = {"valid": True, "errors": []}
         mock_parser_class.return_value = mock_parser
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".st", delete=False) as f:
@@ -51,16 +51,17 @@ class TestValidateTonelSmalltalkFromFile:
             assert result["valid"] is True
             assert result["file_path"] == temp_path
             assert result["parser_type"] == "full"
-            assert "error" not in result
-            mock_parser.validate_from_file.assert_called_once_with(temp_path)
+            assert "errors" not in result
+            mock_parser_class.assert_called_once_with(ignore_method_body_errors=False)
+            mock_parser.parse_from_file.assert_called_once_with(temp_path)
         finally:
             os.unlink(temp_path)
 
-    @patch("smalltalk_validator_mcp_server.core.TonelParser")
+    @patch("smalltalk_validator_mcp_server.core.TonelTreeSitterParser")
     def test_successful_validation_tonel_only(self, mock_parser_class):
         """Test successful validation with tonel-only parser."""
         mock_parser = Mock()
-        mock_parser.validate_from_file.return_value = (True, None)
+        mock_parser.parse_from_file.return_value = {"valid": True, "errors": []}
         mock_parser_class.return_value = mock_parser
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".st", delete=False) as f:
@@ -74,20 +75,29 @@ class TestValidateTonelSmalltalkFromFile:
 
             assert result["valid"] is True
             assert result["parser_type"] == "tonel_only"
-            mock_parser.validate_from_file.assert_called_once_with(temp_path)
+            mock_parser_class.assert_called_once_with(ignore_method_body_errors=True)
+            mock_parser.parse_from_file.assert_called_once_with(temp_path)
         finally:
             os.unlink(temp_path)
 
-    @patch("smalltalk_validator_mcp_server.core.TonelFullParser")
+    @patch("smalltalk_validator_mcp_server.core.TonelTreeSitterParser")
     def test_validation_with_errors(self, mock_parser_class):
         """Test validation that returns errors."""
         mock_parser = Mock()
-        error_info = {
-            "reason": "Syntax error",
-            "line": 1,
-            "error_text": "invalid syntax",
+        error_list = [
+            {
+                "type": "ERROR",
+                "start_point": [0, 0],
+                "end_point": [0, 21],
+                "text": "Invalid Tonel Content",
+                "parent_type": None,
+                "context": None,
+            }
+        ]
+        mock_parser.parse_from_file.return_value = {
+            "valid": False,
+            "errors": error_list,
         }
-        mock_parser.validate_from_file.return_value = (False, error_info)
         mock_parser_class.return_value = mock_parser
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".st", delete=False) as f:
@@ -98,16 +108,16 @@ class TestValidateTonelSmalltalkFromFile:
             result = validate_tonel_smalltalk_from_file(temp_path)
 
             assert result["valid"] is False
-            assert result["error"] == error_info
+            assert result["errors"] == error_list
             assert result["parser_type"] == "full"
         finally:
             os.unlink(temp_path)
 
-    @patch("smalltalk_validator_mcp_server.core.TonelFullParser")
+    @patch("smalltalk_validator_mcp_server.core.TonelTreeSitterParser")
     def test_parser_exception(self, mock_parser_class):
         """Test handling of parser exceptions."""
         mock_parser = Mock()
-        mock_parser.validate_from_file.side_effect = ValueError("Parser error")
+        mock_parser.parse_from_file.side_effect = ValueError("Parser error")
         mock_parser_class.return_value = mock_parser
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".st", delete=False) as f:
@@ -127,11 +137,11 @@ class TestValidateTonelSmalltalkFromFile:
 class TestValidateTonelSmalltalk:
     """Tests for validate_tonel_smalltalk function."""
 
-    @patch("smalltalk_validator_mcp_server.core.TonelFullParser")
+    @patch("smalltalk_validator_mcp_server.core.TonelTreeSitterParser")
     def test_successful_validation(self, mock_parser_class):
         """Test successful content validation."""
         mock_parser = Mock()
-        mock_parser.validate.return_value = (True, None)
+        mock_parser.parse.return_value = {"valid": True, "errors": []}
         mock_parser_class.return_value = mock_parser
 
         content = "Class { #name : #TestClass }"
@@ -140,14 +150,14 @@ class TestValidateTonelSmalltalk:
         assert result["valid"] is True
         assert result["content_length"] == len(content)
         assert result["parser_type"] == "full"
-        assert "error" not in result
-        mock_parser.validate.assert_called_once_with(content)
+        assert "errors" not in result
+        mock_parser.parse.assert_called_once_with(content)
 
-    @patch("smalltalk_validator_mcp_server.core.TonelParser")
+    @patch("smalltalk_validator_mcp_server.core.TonelTreeSitterParser")
     def test_tonel_only_validation(self, mock_parser_class):
         """Test validation with tonel-only option."""
         mock_parser = Mock()
-        mock_parser.validate.return_value = (True, None)
+        mock_parser.parse.return_value = {"valid": True, "errors": []}
         mock_parser_class.return_value = mock_parser
 
         content = "Class { #name : #TestClass }"
@@ -157,32 +167,38 @@ class TestValidateTonelSmalltalk:
 
         assert result["valid"] is True
         assert result["parser_type"] == "tonel_only"
-        mock_parser.validate.assert_called_once_with(content)
+        mock_parser_class.assert_called_once_with(ignore_method_body_errors=True)
+        mock_parser.parse.assert_called_once_with(content)
 
-    @patch("smalltalk_validator_mcp_server.core.TonelFullParser")
+    @patch("smalltalk_validator_mcp_server.core.TonelTreeSitterParser")
     def test_validation_with_errors(self, mock_parser_class):
         """Test content validation with errors."""
         mock_parser = Mock()
-        error_info = {
-            "reason": "Invalid class definition",
-            "line": 2,
-            "error_text": "missing bracket",
-        }
-        mock_parser.validate.return_value = (False, error_info)
+        error_list = [
+            {
+                "type": "ERROR",
+                "start_point": [1, 0],
+                "end_point": [1, 15],
+                "text": "missing bracket",
+                "parent_type": "method_definition",
+                "context": None,
+            }
+        ]
+        mock_parser.parse.return_value = {"valid": False, "errors": error_list}
         mock_parser_class.return_value = mock_parser
 
         content = "Invalid content"
         result = validate_tonel_smalltalk(content)
 
         assert result["valid"] is False
-        assert result["error"] == error_info
+        assert result["errors"] == error_list
         assert result["content_length"] == len(content)
 
-    @patch("smalltalk_validator_mcp_server.core.TonelFullParser")
+    @patch("smalltalk_validator_mcp_server.core.TonelTreeSitterParser")
     def test_content_validation_exception(self, mock_parser_class):
         """Test handling of content validation exceptions."""
         mock_parser = Mock()
-        mock_parser.validate.side_effect = RuntimeError("Content error")
+        mock_parser.parse.side_effect = RuntimeError("Content error")
         mock_parser_class.return_value = mock_parser
 
         content = "Test content"
@@ -197,11 +213,11 @@ class TestValidateTonelSmalltalk:
 class TestValidateSmalltalkMethodBody:
     """Tests for validate_smalltalk_method_body function."""
 
-    @patch("smalltalk_validator_mcp_server.core.SmalltalkParser")
+    @patch("smalltalk_validator_mcp_server.core.SmalltalkMethodParser")
     def test_successful_method_validation(self, mock_parser_class):
         """Test successful method body validation."""
         mock_parser = Mock()
-        mock_parser.validate.return_value = (True, None)
+        mock_parser.parse.return_value = {"valid": True, "errors": []}
         mock_parser_class.return_value = mock_parser
 
         method_body = "^ self name"
@@ -210,33 +226,38 @@ class TestValidateSmalltalkMethodBody:
         assert result["valid"] is True
         assert result["content_length"] == len(method_body)
         assert result["parser_type"] == "smalltalk_method"
-        assert "error" not in result
-        mock_parser.validate.assert_called_once_with(method_body)
+        assert "errors" not in result
+        mock_parser.parse.assert_called_once_with(method_body)
 
-    @patch("smalltalk_validator_mcp_server.core.SmalltalkParser")
+    @patch("smalltalk_validator_mcp_server.core.SmalltalkMethodParser")
     def test_method_validation_with_errors(self, mock_parser_class):
         """Test method validation with syntax errors."""
         mock_parser = Mock()
-        error_info = {
-            "reason": "Syntax error in method",
-            "line": 1,
-            "error_text": "unexpected token",
-        }
-        mock_parser.validate.return_value = (False, error_info)
+        error_list = [
+            {
+                "type": "ERROR",
+                "start_point": [0, 0],
+                "end_point": [0, 24],
+                "text": "invalid method syntax ^^",
+                "parent_type": "method_body",
+                "context": None,
+            }
+        ]
+        mock_parser.parse.return_value = {"valid": False, "errors": error_list}
         mock_parser_class.return_value = mock_parser
 
         method_body = "invalid method syntax ^^"
         result = validate_smalltalk_method_body(method_body)
 
         assert result["valid"] is False
-        assert result["error"] == error_info
+        assert result["errors"] == error_list
         assert result["parser_type"] == "smalltalk_method"
 
-    @patch("smalltalk_validator_mcp_server.core.SmalltalkParser")
+    @patch("smalltalk_validator_mcp_server.core.SmalltalkMethodParser")
     def test_method_validation_exception(self, mock_parser_class):
         """Test handling of method validation exceptions."""
         mock_parser = Mock()
-        mock_parser.validate.side_effect = SyntaxError("Method syntax error")
+        mock_parser.parse.side_effect = SyntaxError("Method syntax error")
         mock_parser_class.return_value = mock_parser
 
         method_body = "test method"
@@ -259,7 +280,7 @@ class TestLintTonelSmalltalkFromFile:
         assert "File not found" in result["error"]
         assert result["file_path"] == "/non/existent/file.st"
 
-    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    @patch("smalltalk_validator_mcp_server.core.TonelCSTLinter")
     def test_successful_linting_no_issues(self, mock_linter_class):
         """Test successful linting with no issues."""
         mock_linter = Mock()
@@ -284,7 +305,7 @@ class TestLintTonelSmalltalkFromFile:
         finally:
             os.unlink(temp_path)
 
-    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    @patch("smalltalk_validator_mcp_server.core.TonelCSTLinter")
     def test_linting_with_issues(self, mock_linter_class):
         """Test linting that returns issues."""
         mock_issue = Mock()
@@ -320,7 +341,7 @@ class TestLintTonelSmalltalkFromFile:
         finally:
             os.unlink(temp_path)
 
-    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    @patch("smalltalk_validator_mcp_server.core.TonelCSTLinter")
     def test_linter_exception(self, mock_linter_class):
         """Test handling of linter exceptions."""
         mock_linter = Mock()
@@ -344,7 +365,7 @@ class TestLintTonelSmalltalkFromFile:
 class TestLintTonelSmalltalk:
     """Tests for lint_tonel_smalltalk function."""
 
-    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    @patch("smalltalk_validator_mcp_server.core.TonelCSTLinter")
     def test_successful_linting(self, mock_linter_class):
         """Test successful content linting."""
         mock_linter = Mock()
@@ -364,7 +385,7 @@ class TestLintTonelSmalltalk:
         assert result["errors_count"] == 0
         mock_linter.lint.assert_called_once_with(content)
 
-    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    @patch("smalltalk_validator_mcp_server.core.TonelCSTLinter")
     def test_linting_with_multiple_issues(self, mock_linter_class):
         """Test linting with multiple issues."""
         mock_issue1 = Mock()
@@ -400,7 +421,7 @@ class TestLintTonelSmalltalk:
         assert result["issue_list"][1]["severity"] == "warning"
         assert result["issue_list"][1]["class_name"] == "testClass"
 
-    @patch("smalltalk_validator_mcp_server.core.TonelLinter")
+    @patch("smalltalk_validator_mcp_server.core.TonelCSTLinter")
     def test_content_linting_exception(self, mock_linter_class):
         """Test handling of content linting exceptions."""
         mock_linter = Mock()
