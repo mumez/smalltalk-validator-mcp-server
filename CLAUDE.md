@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an MCP (Model Context Protocol) server project for validating Tonel formatted Smalltalk source code using the tonel-smalltalk-parser. The purpose is to validate AI-generated tonel files and Smalltalk method definitions before loading them into a real Smalltalk environment.
+This is an MCP (Model Context Protocol) server project for validating Tonel formatted Smalltalk source code using tree-sitter-tonel-smalltalk. The purpose is to validate AI-generated tonel files and Smalltalk method definitions before loading them into a real Smalltalk environment.
 
 ## Architecture
 
@@ -51,10 +51,11 @@ Pre-commit hooks automatically run before each commit to ensure code quality:
 
 ## Development Status
 
-Project is implemented and functional. The MCP server provides five tools (three validation tools and two linting tools) for Smalltalk code using FastMCP framework and tonel-smalltalk-parser.
+Project is implemented and functional. The MCP server provides five tools (three validation tools and two linting tools) for Smalltalk code using FastMCP framework and tree-sitter-tonel-smalltalk.
 
 ## Dependencies
 
-- [tonel-smalltalk-parser](https://github.com/mumez/tonel-smalltalk-parser) - Core parsing library (installed from Git)
+- [tree-sitter-tonel-smalltalk](https://github.com/mumez/tree-sitter-tonel-smalltalk) - Core parsing library (installed from Git)
+- [tree-sitter](https://github.com/tree-sitter/py-tree-sitter) - Tree-sitter Python bindings
 - FastMCP - MCP server framework
 - pytest - Testing framework
