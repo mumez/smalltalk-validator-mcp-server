@@ -18,6 +18,7 @@ from smalltalk_validator_mcp_server.core import (
 from smalltalk_validator_mcp_server.core import (
     validate_tonel_smalltalk_from_file_impl as validate_tonel_smalltalk_from_file,
 )
+from smalltalk_validator_mcp_server.linter import TonelCSTLinter
 from smalltalk_validator_mcp_server.core import (
     validate_tonel_smalltalk_impl as validate_tonel_smalltalk,
 )
@@ -435,3 +436,75 @@ class TestLintTonelSmalltalk:
         assert "Linting failed: Content linting error" in result["error"]
         assert result["exception"] == "RuntimeError"
         assert result["content_length"] == len(content)
+
+
+class TestSingletonClassVarCheck:
+    """Tests for singleton class variable detection in TonelCSTLinter."""
+
+    def _lint(self, content: str):
+        return TonelCSTLinter().lint(content)
+
+    def _singleton_issues(self, issues):
+        return [i for i in issues if "singleton holder" in i.message]
+
+    _CLASS_TEMPLATE = (
+        "Class {{\n"
+        "    #name : #MyNs,\n"
+        "    #superclass : #Object,\n"
+        "    #classVars : [ {vars} ],\n"
+        "    #category : #SomePackage\n"
+        "}}"
+    )
+
+    def _class_with_vars(self, *var_names: str) -> str:
+        vars_str = ", ".join(f"'{v}'" for v in var_names)
+        return self._CLASS_TEMPLATE.format(vars=vars_str)
+
+    def test_detects_default_class_var(self):
+        issues = self._singleton_issues(self._lint(self._class_with_vars("Default")))
+        assert len(issues) == 1
+        assert "Default" in issues[0].message
+        assert issues[0].severity == "warning"
+        assert issues[0].class_name == "MyNs"
+
+    def test_detects_sole_instance_class_var(self):
+        issues = self._singleton_issues(self._lint(self._class_with_vars("SoleInstance")))
+        assert len(issues) == 1
+        assert "SoleInstance" in issues[0].message
+
+    def test_detects_current_class_var(self):
+        issues = self._singleton_issues(self._lint(self._class_with_vars("Current")))
+        assert len(issues) == 1
+        assert "Current" in issues[0].message
+
+    def test_detects_unique_instance_class_var(self):
+        issues = self._singleton_issues(self._lint(self._class_with_vars("UniqueInstance")))
+        assert len(issues) == 1
+        assert "UniqueInstance" in issues[0].message
+
+    def test_detects_instance_class_var(self):
+        issues = self._singleton_issues(self._lint(self._class_with_vars("Instance")))
+        assert len(issues) == 1
+        assert "Instance" in issues[0].message
+
+    def test_no_issue_for_unrelated_class_var(self):
+        issues = self._singleton_issues(self._lint(self._class_with_vars("Counter")))
+        assert len(issues) == 0
+
+    def test_no_issue_without_class_vars(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyNs,\n"
+            "    #superclass : #Object,\n"
+            "    #instVars : [ 'foo' ],\n"
+            "    #category : #SomePackage\n"
+            "}"
+        )
+        issues = self._singleton_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_multiple_singleton_vars_each_reported(self):
+        issues = self._singleton_issues(
+            self._lint(self._class_with_vars("Default", "Current"))
+        )
+        assert len(issues) == 2

@@ -116,11 +116,12 @@ class TonelCSTLinter:
 
     def _run_checks(self, root) -> list[LintIssue]:
         issues: list[LintIssue] = []
-        class_name, inst_vars = self._extract_class_info(root)
+        class_name, inst_vars, class_vars = self._extract_class_info(root)
 
         if class_name:
             issues.extend(self._check_class_prefix(class_name))
             issues.extend(self._check_instance_variables(class_name, inst_vars))
+            issues.extend(self._check_singleton_class_vars(class_name, class_vars))
 
         for child in root.children:
             if child.type == "method_definition":
@@ -128,8 +129,8 @@ class TonelCSTLinter:
 
         return issues
 
-    def _extract_class_info(self, root) -> tuple[str, list[str]]:
-        """Return (class_name, inst_vars) from the source_file's definition node."""
+    def _extract_class_info(self, root) -> tuple[str, list[str], list[str]]:
+        """Return (class_name, inst_vars, class_vars) from the source_file's definition node."""
         for child in root.children:
             if child.type != "definition":
                 continue
@@ -151,8 +152,14 @@ class TonelCSTLinter:
                     inst_vars = (
                         _ston_list_strings(vars_val) if vars_val is not None else []
                     )
-                    return class_name or "", inst_vars
-        return "", []
+                    class_vars_val = _ston_map_get(ston_child, "#classVars")
+                    class_vars = (
+                        _ston_list_strings(class_vars_val)
+                        if class_vars_val is not None
+                        else []
+                    )
+                    return class_name or "", inst_vars, class_vars
+        return "", [], []
 
     def _check_class_prefix(self, class_name: str) -> list[LintIssue]:
         if class_name.startswith("BaselineOf") or class_name.endswith("Test"):
@@ -186,6 +193,29 @@ class TonelCSTLinter:
                 )
             ]
         return []
+
+    # Class variable names commonly used to hold a singleton instance.
+    _SINGLETON_CLASS_VAR_NAMES = frozenset(
+        ["Default", "SoleInstance", "Current", "UniqueInstance", "Instance"]
+    )
+
+    def _check_singleton_class_vars(
+        self, class_name: str, class_vars: list[str]
+    ) -> list[LintIssue]:
+        issues: list[LintIssue] = []
+        for var in class_vars:
+            if var in self._SINGLETON_CLASS_VAR_NAMES:
+                issues.append(
+                    LintIssue(
+                        "warning",
+                        (
+                            f"Class variable '{var}' looks like a singleton holder "
+                            "(use a class instance variable instead)"
+                        ),
+                        class_name=class_name,
+                    )
+                )
+        return issues
 
     def _check_method(self, method_def_node, inst_vars: list[str]) -> list[LintIssue]:
         issues: list[LintIssue] = []
