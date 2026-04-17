@@ -1,7 +1,7 @@
 # smalltalk-validator-mcp-server
 
 A simple MCP server for validating and linting Tonel formatted Smalltalk source code using
-[tonel-smalltalk-parser](https://github.com/mumez/tonel-smalltalk-parser).
+[tree-sitter-tonel-smalltalk](https://github.com/mumez/tree-sitter-tonel-smalltalk).
 
 - The purpose is that we would like to validate and lint AI-generated tonel files and
   Smalltalk method definitions before loading them into a real Smalltalk environment.
@@ -58,7 +58,7 @@ uvx --from git+https://github.com/mumez/smalltalk-validator-mcp-server.git@main 
 ### Development setup (git clone)
 
 ```bash
-git clone https://github.com/your-username/smalltalk-validator-mcp-server.git
+git clone https://github.com/mumez/smalltalk-validator-mcp-server.git
 cd smalltalk-validator-mcp-server
 uv sync
 ```
