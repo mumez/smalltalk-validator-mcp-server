@@ -1360,7 +1360,7 @@ wheels = [
 
 [[package]]
 name = "smalltalk-validator-mcp-server"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
@@ -1381,7 +1381,7 @@ dev = [
 requires-dist = [
     { name = "fastmcp", specifier = ">=3.1.1" },
     { name = "tree-sitter", specifier = ">=0.22.0" },
-    { name = "tree-sitter-tonel-smalltalk", git = "https://github.com/mumez/tree-sitter-tonel-smalltalk.git?tag=v0.2.1" },
+    { name = "tree-sitter-tonel-smalltalk", git = "https://github.com/mumez/tree-sitter-tonel-smalltalk.git?tag=v0.2.2" },
 ]
 
 [package.metadata.requires-dev]
@@ -1518,8 +1518,8 @@ wheels = [
 
 [[package]]
 name = "tree-sitter-tonel-smalltalk"
-version = "0.2.0"
-source = { git = "https://github.com/mumez/tree-sitter-tonel-smalltalk.git?tag=v0.2.1#e29512072c43906037f55b956e401d58ea9ddcd4" }
+version = "0.2.2"
+source = { git = "https://github.com/mumez/tree-sitter-tonel-smalltalk.git?tag=v0.2.2#2ecd86f9367ab26e98fd7f8190b1a1f4bc9195c9" }
 dependencies = [
     { name = "tree-sitter" },
 ]
