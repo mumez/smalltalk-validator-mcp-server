@@ -34,16 +34,12 @@ without-method-body: true
 #### lint_tonel_smalltalk_from_file(file_path)
 
 - Lint Tonel formatted Smalltalk source code from a file
-- Checks for best practices and style issues such as:
-  - Class naming conventions
-  - Excessive instance variables
-  - Method length
-  - Direct instance variable access
 
 #### lint_tonel_smalltalk(file_content)
 
 - Lint Tonel formatted Smalltalk source code from content string
-- Provides the same linting checks as lint_tonel_smalltalk_from_file
+
+See [docs/lint-checks.md](docs/lint-checks.md) for the full list of checks.
 
 ## Installation
 
