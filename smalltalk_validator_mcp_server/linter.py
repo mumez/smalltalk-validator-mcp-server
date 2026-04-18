@@ -84,6 +84,11 @@ def _get_method_category(method_def_node) -> str:
     return ""
 
 
+def _extract_var_list(ston_map_node, key: str) -> list[str]:
+    val = _ston_map_get(ston_map_node, key)
+    return _ston_list_strings(val) if val is not None else []
+
+
 class TonelCSTLinter:
     """Lints Tonel files for Smalltalk best practices using tree-sitter CST."""
 
@@ -148,16 +153,8 @@ class TonelCSTLinter:
                     class_name = (
                         _ston_symbol_text(name_val) if name_val is not None else ""
                     )
-                    vars_val = _ston_map_get(ston_child, "#instVars")
-                    inst_vars = (
-                        _ston_list_strings(vars_val) if vars_val is not None else []
-                    )
-                    class_vars_val = _ston_map_get(ston_child, "#classVars")
-                    class_vars = (
-                        _ston_list_strings(class_vars_val)
-                        if class_vars_val is not None
-                        else []
-                    )
+                    inst_vars = _extract_var_list(ston_child, "#instVars")
+                    class_vars = _extract_var_list(ston_child, "#classVars")
                     return class_name or "", inst_vars, class_vars
         return "", [], []
 
@@ -185,10 +182,7 @@ class TonelCSTLinter:
             return [
                 LintIssue(
                     "warning",
-                    (
-                        f"Too many instance variables: {len(inst_vars)} "
-                        "(consider splitting responsibilities)"
-                    ),
+                    f"Too many instance variables: {len(inst_vars)} (consider splitting responsibilities)",
                     class_name=class_name,
                 )
             ]
@@ -196,26 +190,21 @@ class TonelCSTLinter:
 
     # Class variable names commonly used to hold a singleton instance.
     _SINGLETON_CLASS_VAR_NAMES = frozenset(
-        ["Default", "SoleInstance", "Current", "UniqueInstance", "Instance"]
+        {"Default", "SoleInstance", "Current", "UniqueInstance", "Instance"}
     )
 
     def _check_singleton_class_vars(
         self, class_name: str, class_vars: list[str]
     ) -> list[LintIssue]:
-        issues: list[LintIssue] = []
-        for var in class_vars:
-            if var in self._SINGLETON_CLASS_VAR_NAMES:
-                issues.append(
-                    LintIssue(
-                        "warning",
-                        (
-                            f"Class variable '{var}' looks like a singleton holder "
-                            "(use a class instance variable instead)"
-                        ),
-                        class_name=class_name,
-                    )
-                )
-        return issues
+        return [
+            LintIssue(
+                "warning",
+                f"Class variable '{var}' looks like a singleton holder (use a class instance variable instead)",
+                class_name=class_name,
+            )
+            for var in class_vars
+            if var in self._SINGLETON_CLASS_VAR_NAMES
+        ]
 
     def _check_method(self, method_def_node, inst_vars: list[str]) -> list[LintIssue]:
         issues: list[LintIssue] = []
