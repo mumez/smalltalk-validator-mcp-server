@@ -14,7 +14,7 @@ dependencies = [
 smalltalk-validator-mcp-server = "smalltalk_validator_mcp_server.server:main"
 
 [tool.uv.sources]
-tree-sitter-tonel-smalltalk = { git = "https://github.com/mumez/tree-sitter-tonel-smalltalk.git" }
+tree-sitter-tonel-smalltalk = { git = "https://github.com/mumez/tree-sitter-tonel-smalltalk.git", tag = "v0.2.1" }
 
 [tool.setuptools.packages.find]
 exclude = ["downloads*"]
