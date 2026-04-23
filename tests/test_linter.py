@@ -257,3 +257,143 @@ class TestSingletonClassVarCheck:
             self._lint(self._class_with_vars("Default", "Current"))
         )
         assert len(issues) == 2
+
+
+class TestOwnClassDirectReferenceCheck:
+    """Tests for direct own-class references that should use self/self class."""
+
+    def _lint(self, content: str):
+        return TonelCSTLinter().lint(content)
+
+    def _self_class_reference_issues(self, issues):
+        return [i for i in issues if "Direct reference to own class" in i.message]
+
+    def test_warns_in_instance_method_when_referencing_own_class_directly(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #instVars : [ 'amount' ],\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass >> otherWithSameAmount [\n"
+            "    | newInstance |\n"
+            "    newInstance := MyClass new.\n"
+            "    newInstance amount: self amount.\n"
+            "    ^ newInstance\n"
+            "]\n"
+        )
+
+        issues = self._self_class_reference_issues(self._lint(content))
+        assert len(issues) == 1
+        assert issues[0].severity == "warning"
+        assert "MyClass" in issues[0].message
+        assert "use self class instead" in issues[0].message
+        assert issues[0].class_name == "MyClass"
+        assert issues[0].selector == "otherWithSameAmount"
+        assert issues[0].is_class_method is False
+
+    def test_warns_in_class_method_when_referencing_own_class_directly(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass class >> newForApi [\n"
+            "    | newInstance |\n"
+            "    newInstance := MyClass new.\n"
+            "    ^ newInstance\n"
+            "]\n"
+        )
+
+        issues = self._self_class_reference_issues(self._lint(content))
+        assert len(issues) == 1
+        assert issues[0].severity == "warning"
+        assert "MyClass" in issues[0].message
+        assert "use self instead" in issues[0].message
+        assert issues[0].class_name == "MyClass"
+        assert issues[0].selector == "newForApi"
+        assert issues[0].is_class_method is True
+
+    def test_no_warning_when_instance_method_uses_self_class(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #instVars : [ 'amount' ],\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass >> otherWithSameAmount [\n"
+            "    | newInstance |\n"
+            "    newInstance := self class new.\n"
+            "    newInstance amount: self amount.\n"
+            "    ^ newInstance\n"
+            "]\n"
+        )
+
+        issues = self._self_class_reference_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_when_class_method_uses_self(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass class >> newForApi [\n"
+            "    | newInstance |\n"
+            "    newInstance := self new.\n"
+            "    ^ newInstance\n"
+            "]\n"
+        )
+
+        issues = self._self_class_reference_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_class_name_inside_comment_or_string(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass >> explain [\n"
+            '    "MyClass should not be detected in comment"\n'
+            "    ^ 'MyClass in string literal'\n"
+            "]\n"
+        )
+
+        issues = self._self_class_reference_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_class_name_inside_symbol_literals(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass >> symbolLiterals [\n"
+            "    | first second |\n"
+            "    first := #MyClass.\n"
+            "    second := #'MyClass'.\n"
+            "    ^ first -> second\n"
+            "]\n"
+        )
+
+        issues = self._self_class_reference_issues(self._lint(content))
+        assert len(issues) == 0
