@@ -248,6 +248,14 @@ class TonelCSTLinter:
                     is_class_method,
                 )
             )
+            issues.extend(
+                self._check_iskindof_usage(
+                    body_text,
+                    class_name,
+                    selector,
+                    is_class_method,
+                )
+            )
 
         return issues
 
@@ -312,6 +320,31 @@ class TonelCSTLinter:
             LintIssue(
                 "warning",
                 f"Direct reference to own class '{class_name}' (use {replacement} instead)",
+                class_name=class_name,
+                selector=selector,
+                is_class_method=is_class_method,
+            )
+        ]
+
+    def _check_iskindof_usage(
+        self,
+        body_text: str,
+        class_name: str,
+        selector: str,
+        is_class_method: bool,
+    ) -> list[LintIssue]:
+        sanitized = re.sub(r'"[^"\n]*"', "", body_text)
+        sanitized = re.sub(r"'(?:''|[^'])*'", "''", sanitized)
+        sanitized = re.sub(r"#'(?:''|[^'])*'", "#''", sanitized)
+        sanitized = re.sub(r"#[A-Za-z_][A-Za-z0-9_]*", "#", sanitized)
+
+        if not re.search(r"\bisKindOf\s*:", sanitized):
+            return []
+
+        return [
+            LintIssue(
+                "warning",
+                "Avoid isKindOf: checks (prefer isXxx predicate or polymorphism)",
                 class_name=class_name,
                 selector=selector,
                 is_class_method=is_class_method,

@@ -397,3 +397,89 @@ class TestOwnClassDirectReferenceCheck:
 
         issues = self._self_class_reference_issues(self._lint(content))
         assert len(issues) == 0
+
+
+class TestIsKindOfUsageCheck:
+    """Tests for discouraging isKindOf: checks in methods."""
+
+    def _lint(self, content: str):
+        return TonelCSTLinter().lint(content)
+
+    def _iskindof_issues(self, issues):
+        return [i for i in issues if "Avoid isKindOf: checks" in i.message]
+
+    def test_warns_when_using_iskindof_in_instance_method(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass >> convert: obj [\n"
+            "    (obj isKindOf: Dictionary) ifTrue: [ ^ obj ].\n"
+            "    ^ Dictionary new\n"
+            "]\n"
+        )
+
+        issues = self._iskindof_issues(self._lint(content))
+        assert len(issues) == 1
+        assert issues[0].severity == "warning"
+        assert issues[0].class_name == "MyClass"
+        assert issues[0].selector == "convert:"
+        assert issues[0].is_class_method is False
+
+    def test_no_warning_when_using_specific_predicate(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass >> convert: obj [\n"
+            "    (obj isDictionary) ifTrue: [ ^ obj ].\n"
+            "    ^ Dictionary new\n"
+            "]\n"
+        )
+
+        issues = self._iskindof_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_iskindof_inside_comment_string_or_symbol(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass >> explain [\n"
+            '    "Avoid isKindOf: in real code"\n'
+            "    ^ 'isKindOf: should not be detected here' -> #isKindOf:\n"
+            "]\n"
+        )
+
+        issues = self._iskindof_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_warns_when_keyword_has_spaces_before_colon(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass >> convert: obj [\n"
+            "    (obj isKindOf   : Dictionary) ifTrue: [ ^ obj ].\n"
+            "    ^ nil\n"
+            "]\n"
+        )
+
+        issues = self._iskindof_issues(self._lint(content))
+        assert len(issues) == 1
