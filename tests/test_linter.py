@@ -446,9 +446,34 @@ class TestDirectAccessCheck:
         assert len(issues) == 1
         assert "amount" in issues[0].message
 
-    def test_no_warning_in_accessing_category(self):
+    def test_no_warning_in_accessing_category_symbol(self):
+        """{ #category : #accessing } — unquoted symbol"""
         content = self._CLASS_WITH_INST_VAR + self._method_in_category(
             "accessing", "^ amount"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_accessing_category_quoted_symbol(self):
+        """{ #category : #'accessing' } — quoted symbol"""
+        content = (
+            self._CLASS_WITH_INST_VAR
+            + "{ #category : #'accessing' }\n"
+            "MyClass >> testMethod [\n"
+            "    ^ amount\n"
+            "]\n"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_accessing_category_string_literal(self):
+        """{ #category : 'accessing' } — plain string literal (no #)"""
+        content = (
+            self._CLASS_WITH_INST_VAR
+            + "{ #category : 'accessing' }\n"
+            "MyClass >> testMethod [\n"
+            "    ^ amount\n"
+            "]\n"
         )
         issues = self._direct_access_issues(self._lint(content))
         assert len(issues) == 0
