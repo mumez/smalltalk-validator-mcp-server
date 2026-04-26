@@ -420,10 +420,7 @@ class TestDirectAccessCheck:
 
     def _method_in_category(self, category: str, body: str) -> str:
         return (
-            f"{{ #category : #{category} }}\n"
-            f"MyClass >> testMethod [\n"
-            f"    {body}\n"
-            f"]\n"
+            f"{{ #category : #{category} }}\nMyClass >> testMethod [\n    {body}\n]\n"
         )
 
     def test_warns_on_direct_assignment_in_regular_category(self):
@@ -457,8 +454,7 @@ class TestDirectAccessCheck:
     def test_no_warning_in_accessing_category_quoted_symbol(self):
         """{ #category : #'accessing' } — quoted symbol"""
         content = (
-            self._CLASS_WITH_INST_VAR
-            + "{ #category : #'accessing' }\n"
+            self._CLASS_WITH_INST_VAR + "{ #category : #'accessing' }\n"
             "MyClass >> testMethod [\n"
             "    ^ amount\n"
             "]\n"
@@ -469,8 +465,7 @@ class TestDirectAccessCheck:
     def test_no_warning_in_accessing_category_string_literal(self):
         """{ #category : 'accessing' } — plain string literal (no #)"""
         content = (
-            self._CLASS_WITH_INST_VAR
-            + "{ #category : 'accessing' }\n"
+            self._CLASS_WITH_INST_VAR + "{ #category : 'accessing' }\n"
             "MyClass >> testMethod [\n"
             "    ^ amount\n"
             "]\n"
@@ -488,8 +483,7 @@ class TestDirectAccessCheck:
     def test_no_warning_in_accessing_subcategory(self):
         """Category name containing 'accessing' as substring is also excluded."""
         content = (
-            self._CLASS_WITH_INST_VAR
-            + "{ #category : #'private-accessing' }\n"
+            self._CLASS_WITH_INST_VAR + "{ #category : #'private-accessing' }\n"
             "MyClass >> testMethod [\n"
             "    ^ amount\n"
             "]\n"
