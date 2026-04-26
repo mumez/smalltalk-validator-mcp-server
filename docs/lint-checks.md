@@ -64,3 +64,26 @@ ______________________________________________________________________
 Triggers when a method reads or writes an instance variable directly (without going through an accessor) outside of `accessing` or `initializing` categories.
 
 Suggestion: use accessor messages (`self name: 'foo'` / `^ self name`) instead.
+
+______________________________________________________________________
+
+### Direct Own-Class Reference
+
+**Severity:** warning
+
+Triggers when a method directly references its own class name even though `self` / `self class` can resolve it.
+
+- In instance methods, prefer `self class` over direct class-name reference.
+- In class methods, prefer `self` over direct class-name reference.
+
+Suggestion: replace direct class-name sends like `MyClass new` with `self class new` (instance side) or `self new` (class side).
+
+______________________________________________________________________
+
+### `isKindOf:` Usage
+
+**Severity:** warning
+
+Triggers when a method uses `isKindOf:` for type branching.
+
+Suggestion: prefer dedicated predicate messages such as `isDictionary` (or other `isXxx` methods), or remove branching via polymorphism.
