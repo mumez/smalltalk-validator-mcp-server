@@ -86,13 +86,18 @@ def _ston_map_get(ston_map_node, key: str):
 
 
 def _ston_symbol_text(value_node) -> str | None:
-    """Extract string content from a ston_value that holds a ston_symbol."""
+    """Extract string content from a ston_value that holds a ston_symbol or string."""
     for child in value_node.children:
         if child.type == "ston_symbol":
             raw = child.text.decode("utf-8") if child.text else ""
             raw = raw.lstrip("#")
             if raw.startswith("'") and raw.endswith("'"):
                 raw = raw[1:-1]
+            return raw
+        if child.type == "string":
+            raw = child.text.decode("utf-8") if child.text else ""
+            if raw.startswith("'") and raw.endswith("'"):
+                raw = raw[1:-1].replace("''", "'")
             return raw
     return None
 
