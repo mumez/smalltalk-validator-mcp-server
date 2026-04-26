@@ -399,6 +399,117 @@ class TestOwnClassDirectReferenceCheck:
         assert len(issues) == 0
 
 
+class TestDirectAccessCheck:
+    """Tests for _check_direct_access: direct instance variable access detection."""
+
+    def _lint(self, content: str):
+        return TonelCSTLinter().lint(content)
+
+    def _direct_access_issues(self, issues):
+        return [i for i in issues if "Direct access to" in i.message]
+
+    _CLASS_WITH_INST_VAR = (
+        "Class {\n"
+        "    #name : #MyClass,\n"
+        "    #superclass : #Object,\n"
+        "    #instVars : [ 'amount' ],\n"
+        "    #category : #SomePackage\n"
+        "}\n"
+        "\n"
+    )
+
+    def _method_in_category(self, category: str, body: str) -> str:
+        return (
+            f"{{ #category : #{category} }}\n"
+            f"MyClass >> testMethod [\n"
+            f"    {body}\n"
+            f"]\n"
+        )
+
+    def test_warns_on_direct_assignment_in_regular_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "private", "amount := 42"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert issues[0].severity == "warning"
+        assert "amount" in issues[0].message
+        assert issues[0].class_name == "MyClass"
+        assert issues[0].selector == "testMethod"
+        assert issues[0].is_class_method is False
+
+    def test_warns_on_direct_return_in_regular_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "private", "^ amount"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "amount" in issues[0].message
+
+    def test_no_warning_in_accessing_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "accessing", "^ amount"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_accessing_category_case_insensitive(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "Accessing", "^ amount"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_accessing_subcategory(self):
+        """Category name containing 'accessing' as substring is also excluded."""
+        content = (
+            self._CLASS_WITH_INST_VAR
+            + "{ #category : #'private-accessing' }\n"
+            "MyClass >> testMethod [\n"
+            "    ^ amount\n"
+            "]\n"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_initialization_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "initialization", "amount := 0"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_initialize_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "initialize", "amount := 0"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_when_using_self_message_send(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "private", "self amount: 42"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_without_instance_variables(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #private }\n"
+            "MyClass >> testMethod [\n"
+            "    ^ 42\n"
+            "]\n"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+
 class TestIsKindOfUsageCheck:
     """Tests for discouraging isKindOf: checks in methods."""
 
