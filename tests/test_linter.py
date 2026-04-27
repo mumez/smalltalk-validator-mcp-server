@@ -613,3 +613,254 @@ class TestIsKindOfUsageCheck:
 
         issues = self._iskindof_issues(self._lint(content))
         assert len(issues) == 1
+
+
+class TestNilBranchingCheck:
+    """Tests for isNil/notNil + ifTrue:/ifFalse: branching anti-patterns."""
+
+    def _lint(self, content: str):
+        return TonelCSTLinter().lint(content)
+
+    def _nil_issues(self, issues):
+        return [i for i in issues if "nil-safe branching" in i.message]
+
+    _CLASS_HEADER = (
+        "Class {\n"
+        "    #name : #MyClass,\n"
+        "    #superclass : #Object,\n"
+        "    #category : #SomePackage\n"
+        "}\n\n"
+    )
+
+    def _method(self, body: str, category: str = "private") -> str:
+        return f"{{ #category : #{category} }}\nMyClass >> testMethod [\n{body}\n]\n"
+
+    def test_warns_on_isnil_iftrue(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value isNil ifTrue: [ ^ self ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 1
+        assert issues[0].severity == "warning"
+        assert "ifNil:" in issues[0].message
+        assert issues[0].class_name == "MyClass"
+        assert issues[0].selector == "testMethod"
+
+    def test_warns_on_notnil_iftrue(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value notNil ifTrue: [ self doSomething ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifNotNil:" in issues[0].message
+
+    def test_warns_on_isnil_iffalse(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value isNil ifFalse: [ self doSomething ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifNotNil:" in issues[0].message
+
+    def test_warns_on_notnil_iffalse(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value notNil ifFalse: [ ^ self ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifNil:" in issues[0].message
+
+    def test_warns_on_combined_isnil_iftrue_iffalse(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value isNil\n"
+            "        ifTrue: [ self handleNil ]\n"
+            "        ifFalse: [ self handleNotNil ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifNil:ifNotNil:" in issues[0].message
+
+    def test_warns_on_combined_isnil_iffalse_iftrue(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value isNil\n"
+            "        ifFalse: [ self handleNotNil ]\n"
+            "        ifTrue: [ self handleNil ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifNil:ifNotNil:" in issues[0].message
+
+    def test_warns_on_combined_notnil_iftrue_iffalse(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value notNil\n"
+            "        ifTrue: [ self handleNotNil ]\n"
+            "        ifFalse: [ self handleNil ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifNil:ifNotNil:" in issues[0].message
+
+    def test_combined_pattern_no_double_report(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value isNil\n"
+            "        ifTrue: [ self handleNil ]\n"
+            "        ifFalse: [ self handleNotNil ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 1
+
+    def test_no_warning_for_ifnil_usage(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value ifNil: [ ^ self default ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_ifnil_ifnotnil_usage(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value ifNil: [ self handleNil ] ifNotNil: [ :v | self use: v ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_comment_or_string(self):
+        content = self._CLASS_HEADER + self._method(
+            "    \"value isNil ifTrue: [ ^ self ]\"\n    ^ 'notNil ifTrue: do nothing'"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_symbol_literal(self):
+        content = self._CLASS_HEADER + self._method("    ^ #isNil -> #ifTrue:")
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_multiline_simple_pattern(self):
+        content = self._CLASS_HEADER + self._method(
+            "    value isNil\n        ifTrue: [ ^ self ]"
+        )
+        issues = self._nil_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifNil:" in issues[0].message
+
+
+class TestEmptyBranchingCheck:
+    """Tests for isEmpty/notEmpty + ifTrue:/ifFalse: branching anti-patterns."""
+
+    def _lint(self, content: str):
+        return TonelCSTLinter().lint(content)
+
+    def _empty_issues(self, issues):
+        return [i for i in issues if "collection branching" in i.message]
+
+    _CLASS_HEADER = (
+        "Class {\n"
+        "    #name : #MyClass,\n"
+        "    #superclass : #Object,\n"
+        "    #category : #SomePackage\n"
+        "}\n\n"
+    )
+
+    def _method(self, body: str) -> str:
+        return f"{{ #category : #private }}\nMyClass >> testMethod [\n{body}\n]\n"
+
+    def test_warns_on_isempty_iftrue(self):
+        content = self._CLASS_HEADER + self._method(
+            "    col isEmpty ifTrue: [ ^ self ]"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 1
+        assert issues[0].severity == "warning"
+        assert "ifEmpty:" in issues[0].message
+        assert issues[0].class_name == "MyClass"
+        assert issues[0].selector == "testMethod"
+
+    def test_warns_on_notempty_iftrue(self):
+        content = self._CLASS_HEADER + self._method(
+            "    col notEmpty ifTrue: [ self process ]"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifNotEmpty:" in issues[0].message
+
+    def test_warns_on_isempty_iffalse(self):
+        content = self._CLASS_HEADER + self._method(
+            "    col isEmpty ifFalse: [ self process ]"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifNotEmpty:" in issues[0].message
+
+    def test_warns_on_notempty_iffalse(self):
+        content = self._CLASS_HEADER + self._method(
+            "    col notEmpty ifFalse: [ ^ self ]"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifEmpty:" in issues[0].message
+
+    def test_warns_on_combined_isempty_iftrue_iffalse(self):
+        content = self._CLASS_HEADER + self._method(
+            "    col isEmpty\n"
+            "        ifTrue: [ self handleEmpty ]\n"
+            "        ifFalse: [ self handleNotEmpty ]"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifEmpty:ifNotEmpty:" in issues[0].message
+
+    def test_warns_on_combined_isempty_iffalse_iftrue(self):
+        content = self._CLASS_HEADER + self._method(
+            "    col isEmpty\n"
+            "        ifFalse: [ self handleNotEmpty ]\n"
+            "        ifTrue: [ self handleEmpty ]"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifEmpty:ifNotEmpty:" in issues[0].message
+
+    def test_warns_on_combined_notempty_iftrue_iffalse(self):
+        content = self._CLASS_HEADER + self._method(
+            "    col notEmpty\n"
+            "        ifTrue: [ self process ]\n"
+            "        ifFalse: [ self skip ]"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "ifEmpty:ifNotEmpty:" in issues[0].message
+
+    def test_combined_pattern_no_double_report(self):
+        content = self._CLASS_HEADER + self._method(
+            "    col isEmpty\n"
+            "        ifTrue: [ self handleEmpty ]\n"
+            "        ifFalse: [ self handleNotEmpty ]"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 1
+
+    def test_no_warning_for_ifempty_usage(self):
+        content = self._CLASS_HEADER + self._method(
+            "    col ifEmpty: [ ^ self default ]"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_ifempty_ifnotempty_usage(self):
+        content = self._CLASS_HEADER + self._method(
+            "    col ifEmpty: [ self handleEmpty ] ifNotEmpty: [ :c | self use: c ]"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_comment_or_string(self):
+        content = self._CLASS_HEADER + self._method(
+            '    "col isEmpty ifTrue: [ do something ]"\n'
+            "    ^ 'notEmpty ifTrue: nope'"
+        )
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_symbol_literal(self):
+        content = self._CLASS_HEADER + self._method("    ^ #isEmpty -> #ifTrue:")
+        issues = self._empty_issues(self._lint(content))
+        assert len(issues) == 0
