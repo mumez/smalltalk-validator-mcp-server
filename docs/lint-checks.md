@@ -87,3 +87,45 @@ ______________________________________________________________________
 Triggers when a method uses `isKindOf:` for type branching.
 
 Suggestion: prefer dedicated predicate messages such as `isDictionary` (or other `isXxx` methods), or remove branching via polymorphism.
+
+______________________________________________________________________
+
+### Nil-Safe Branching
+
+**Severity:** warning
+
+Triggers when a method uses `isNil` or `notNil` combined with `ifTrue:` / `ifFalse:` instead of the dedicated nil-safe messages.
+
+| Detected pattern                      | Preferred alternative          |
+| ------------------------------------- | ------------------------------ |
+| `isNil ifTrue: [...]`                 | `ifNil: [...]`                 |
+| `notNil ifTrue: [...]`                | `ifNotNil: [...]`              |
+| `isNil ifFalse: [...]`                | `ifNotNil: [...]`              |
+| `notNil ifFalse: [...]`               | `ifNil: [...]`                 |
+| `isNil ifTrue: [...] ifFalse: [...]`  | `ifNil: [...] ifNotNil: [...]` |
+| `isNil ifFalse: [...] ifTrue: [...]`  | `ifNil: [...] ifNotNil: [...]` |
+| `notNil ifTrue: [...] ifFalse: [...]` | `ifNil: [...] ifNotNil: [...]` |
+| `notNil ifFalse: [...] ifTrue: [...]` | `ifNil: [...] ifNotNil: [...]` |
+
+Two-branch patterns (`ifTrue:ifFalse:` / `ifFalse:ifTrue:`) are reported as a single issue suggesting `ifNil:ifNotNil:`.
+
+______________________________________________________________________
+
+### Collection Branching
+
+**Severity:** warning
+
+Triggers when a method uses `isEmpty` or `notEmpty` combined with `ifTrue:` / `ifFalse:` instead of the dedicated collection branching messages.
+
+| Detected pattern                        | Preferred alternative              |
+| --------------------------------------- | ---------------------------------- |
+| `isEmpty ifTrue: [...]`                 | `ifEmpty: [...]`                   |
+| `notEmpty ifTrue: [...]`                | `ifNotEmpty: [...]`                |
+| `isEmpty ifFalse: [...]`                | `ifNotEmpty: [...]`                |
+| `notEmpty ifFalse: [...]`               | `ifEmpty: [...]`                   |
+| `isEmpty ifTrue: [...] ifFalse: [...]`  | `ifEmpty: [...] ifNotEmpty: [...]` |
+| `isEmpty ifFalse: [...] ifTrue: [...]`  | `ifEmpty: [...] ifNotEmpty: [...]` |
+| `notEmpty ifTrue: [...] ifFalse: [...]` | `ifEmpty: [...] ifNotEmpty: [...]` |
+| `notEmpty ifFalse: [...] ifTrue: [...]` | `ifEmpty: [...] ifNotEmpty: [...]` |
+
+Two-branch patterns (`ifTrue:ifFalse:` / `ifFalse:ifTrue:`) are reported as a single issue suggesting `ifEmpty:ifNotEmpty:`.
