@@ -864,3 +864,129 @@ class TestEmptyBranchingCheck:
         content = self._CLASS_HEADER + self._method("    ^ #isEmpty -> #ifTrue:")
         issues = self._empty_issues(self._lint(content))
         assert len(issues) == 0
+
+
+class TestCollectionAccessCheck:
+    """Tests for at: N / at: size patterns that can use first/second/.../sixth/last."""
+
+    def _lint(self, content: str):
+        return TonelCSTLinter().lint(content)
+
+    def _access_issues(self, issues):
+        return [i for i in issues if "idiomatic collection access" in i.message]
+
+    _CLASS_HEADER = (
+        "Class {\n"
+        "    #name : #MyClass,\n"
+        "    #superclass : #Object,\n"
+        "    #category : #SomePackage\n"
+        "}\n\n"
+    )
+
+    def _method(self, body: str) -> str:
+        return f"{{ #category : #private }}\nMyClass >> testMethod [\n{body}\n]\n"
+
+    def test_warns_on_at_1(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: 1")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert issues[0].severity == "warning"
+        assert "first" in issues[0].message
+        assert issues[0].class_name == "MyClass"
+        assert issues[0].selector == "testMethod"
+
+    def test_warns_on_at_2(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: 2")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "second" in issues[0].message
+
+    def test_warns_on_at_3(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: 3")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "third" in issues[0].message
+
+    def test_warns_on_at_4(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: 4")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "fourth" in issues[0].message
+
+    def test_warns_on_at_5(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: 5")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "fifth" in issues[0].message
+
+    def test_warns_on_at_6(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: 6")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "sixth" in issues[0].message
+
+    def test_warns_on_at_collection_size(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: col size")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "last" in issues[0].message
+
+    def test_warns_on_at_collection_size_parenthesized(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: (col size)")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "last" in issues[0].message
+
+    def test_no_warning_for_first_usage(self):
+        content = self._CLASS_HEADER + self._method("    ^ col first")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_at_7(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: 7")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_at_put(self):
+        content = self._CLASS_HEADER + self._method("    col at: 1 put: value")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_at_ifabsent(self):
+        content = self._CLASS_HEADER + self._method(
+            "    ^ col at: 1 ifAbsent: [ self default ]"
+        )
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_at_10(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: 10")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_at_size_minus_n(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: col size - 1")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_at_1_plus_n(self):
+        content = self._CLASS_HEADER + self._method("    ^ col at: 1 + offset")
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_in_comment_or_string(self):
+        content = self._CLASS_HEADER + self._method(
+            "    \"col at: 1 should use first\"\n    ^ 'col at: 2 should use second'"
+        )
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_multiple_patterns_reported_separately(self):
+        content = self._CLASS_HEADER + self._method(
+            "    | a b |\n    a := col at: 1.\n    b := col at: 2.\n    ^ a + b"
+        )
+        issues = self._access_issues(self._lint(content))
+        assert len(issues) == 2
+        messages = {i.message for i in issues}
+        assert any("first" in m for m in messages)
+        assert any("second" in m for m in messages)

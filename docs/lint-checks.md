@@ -129,3 +129,34 @@ Triggers when a method uses `isEmpty` or `notEmpty` combined with `ifTrue:` / `i
 | `notEmpty ifFalse: [...] ifTrue: [...]` | `ifEmpty: [...] ifNotEmpty: [...]` |
 
 Two-branch patterns (`ifTrue:ifFalse:` / `ifFalse:ifTrue:`) are reported as a single issue suggesting `ifEmpty:ifNotEmpty:`.
+
+______________________________________________________________________
+
+### Idiomatic Collection Access
+
+**Severity:** warning
+
+Triggers when a method uses `at:` with a small integer literal or a collection size expression where a dedicated accessor message is available.
+
+#### `at: N` → positional accessor
+
+| Detected pattern | Preferred alternative |
+| ---------------- | --------------------- |
+| `col at: 1`      | `col first`           |
+| `col at: 2`      | `col second`          |
+| `col at: 3`      | `col third`           |
+| `col at: 4`      | `col fourth`          |
+| `col at: 5`      | `col fifth`           |
+| `col at: 6`      | `col sixth`           |
+
+`at:put:`, `at:ifAbsent:`, and similar multi-keyword forms are excluded.
+Arithmetic in the argument (e.g. `at: 1 + offset`) is also excluded.
+
+#### `at: <collection> size` → `last`
+
+| Detected pattern     | Preferred alternative |
+| -------------------- | --------------------- |
+| `col at: col size`   | `col last`            |
+| `col at: (col size)` | `col last`            |
+
+Expressions with arithmetic after `size` (e.g. `at: col size - 1`) are excluded.
