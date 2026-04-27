@@ -20,21 +20,18 @@ _RE_UNARY_ID = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)")
 # Block content: matches [...] with up to two levels of bracket nesting
 _BLOCK_PAT = r"\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\]"
 
-# Nil-branching combined patterns: (isNil|notNil) ifTrue:[...] ifFalse: or reversed
 _NIL_COMBINED_RE = re.compile(
     rf"(?:\bisNil|\bnotNil)\s+ifTrue:\s*{_BLOCK_PAT}\s*ifFalse:"
     rf"|(?:\bisNil|\bnotNil)\s+ifFalse:\s*{_BLOCK_PAT}\s*ifTrue:",
     re.DOTALL,
 )
 
-# Empty-branching combined patterns: (isEmpty|notEmpty) ifTrue:[...] ifFalse: or reversed
 _EMPTY_COMBINED_RE = re.compile(
     rf"(?:\bisEmpty|\bnotEmpty)\s+ifTrue:\s*{_BLOCK_PAT}\s*ifFalse:"
     rf"|(?:\bisEmpty|\bnotEmpty)\s+ifFalse:\s*{_BLOCK_PAT}\s*ifTrue:",
     re.DOTALL,
 )
 
-# Simple nil-branching patterns: (bad_pattern, suggestion)
 _NIL_SIMPLE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bisNil\s+ifTrue:"), "isNil ifTrue:", "ifNil:"),
     (re.compile(r"\bnotNil\s+ifTrue:"), "notNil ifTrue:", "ifNotNil:"),
@@ -42,7 +39,6 @@ _NIL_SIMPLE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bnotNil\s+ifFalse:"), "notNil ifFalse:", "ifNil:"),
 ]
 
-# Simple empty-branching patterns: (bad_pattern, suggestion)
 _EMPTY_SIMPLE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bisEmpty\s+ifTrue:"), "isEmpty ifTrue:", "ifEmpty:"),
     (re.compile(r"\bnotEmpty\s+ifTrue:"), "notEmpty ifTrue:", "ifNotEmpty:"),
@@ -53,7 +49,6 @@ _EMPTY_SIMPLE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
 # Guard: exclude at:put:, at:ifAbsent:, and at: N + M (arithmetic) false positives
 _AT_ARG_GUARD = r"(?!\s*[-+*/])(?!\s*[A-Za-z_][A-Za-z0-9_]*:)"
 
-# at: 1..6 patterns that can be replaced with first/second/.../sixth
 _AT_NUMBER_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(rf"\bat:\s*1\b{_AT_ARG_GUARD}"), "at: 1", "first"),
     (re.compile(rf"\bat:\s*2\b{_AT_ARG_GUARD}"), "at: 2", "second"),
@@ -63,7 +58,6 @@ _AT_NUMBER_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(rf"\bat:\s*6\b{_AT_ARG_GUARD}"), "at: 6", "sixth"),
 ]
 
-# at: <receiver> size pattern that can be replaced with last
 # Excludes at: col size - N (arithmetic after size) to avoid false positives
 _AT_SIZE_RE = re.compile(
     r"\bat:\s*\(?[A-Za-z_][A-Za-z0-9_]*\s+size\s*\)?(?!\s*[-+*/])",
@@ -287,6 +281,7 @@ class TonelCSTLinter:
 
         if body_node is not None:
             body_text = body_node.text.decode("utf-8") if body_node.text else ""
+            sanitized = _sanitize_body(body_text)
             issues.extend(
                 self._check_method_length(
                     body_text, class_name, selector, is_class_method, category
@@ -304,7 +299,7 @@ class TonelCSTLinter:
             )
             issues.extend(
                 self._check_self_class_reference(
-                    body_text,
+                    sanitized,
                     class_name,
                     selector,
                     is_class_method,
@@ -312,7 +307,7 @@ class TonelCSTLinter:
             )
             issues.extend(
                 self._check_iskindof_usage(
-                    body_text,
+                    sanitized,
                     class_name,
                     selector,
                     is_class_method,
@@ -320,7 +315,7 @@ class TonelCSTLinter:
             )
             issues.extend(
                 self._check_nil_branching(
-                    body_text,
+                    sanitized,
                     class_name,
                     selector,
                     is_class_method,
@@ -328,7 +323,7 @@ class TonelCSTLinter:
             )
             issues.extend(
                 self._check_empty_branching(
-                    body_text,
+                    sanitized,
                     class_name,
                     selector,
                     is_class_method,
@@ -336,7 +331,7 @@ class TonelCSTLinter:
             )
             issues.extend(
                 self._check_collection_access(
-                    body_text,
+                    sanitized,
                     class_name,
                     selector,
                     is_class_method,
@@ -385,18 +380,13 @@ class TonelCSTLinter:
 
     def _check_self_class_reference(
         self,
-        body_text: str,
+        sanitized: str,
         class_name: str,
         selector: str,
         is_class_method: bool,
     ) -> list[LintIssue]:
         if not class_name:
             return []
-
-        sanitized = re.sub(r'"[^"\n]*"', "", body_text)
-        sanitized = re.sub(r"'(?:''|[^'])*'", "''", sanitized)
-        sanitized = re.sub(r"#'(?:''|[^'])*'", "#''", sanitized)
-        sanitized = re.sub(r"#[A-Za-z_][A-Za-z0-9_]*", "#", sanitized)
 
         if not re.search(rf"\b{re.escape(class_name)}\b", sanitized):
             return []
@@ -414,16 +404,11 @@ class TonelCSTLinter:
 
     def _check_iskindof_usage(
         self,
-        body_text: str,
+        sanitized: str,
         class_name: str,
         selector: str,
         is_class_method: bool,
     ) -> list[LintIssue]:
-        sanitized = re.sub(r'"[^"\n]*"', "", body_text)
-        sanitized = re.sub(r"'(?:''|[^'])*'", "''", sanitized)
-        sanitized = re.sub(r"#'(?:''|[^'])*'", "#''", sanitized)
-        sanitized = re.sub(r"#[A-Za-z_][A-Za-z0-9_]*", "#", sanitized)
-
         if not re.search(r"\bisKindOf\s*:", sanitized):
             return []
 
@@ -437,86 +422,85 @@ class TonelCSTLinter:
             )
         ]
 
-    def _check_nil_branching(
+    def _check_branching(
         self,
-        body_text: str,
+        sanitized: str,
+        combined_re: re.Pattern[str],
+        combined_msg: str,
+        simple_patterns: list[tuple[re.Pattern[str], str, str]],
+        label: str,
         class_name: str,
         selector: str,
         is_class_method: bool,
     ) -> list[LintIssue]:
-        sanitized = _sanitize_body(body_text)
         issues: list[LintIssue] = []
-
-        if _NIL_COMBINED_RE.search(sanitized):
-            sanitized = _NIL_COMBINED_RE.sub("", sanitized)
+        if combined_re.search(sanitized):
+            sanitized = combined_re.sub("", sanitized)
             issues.append(
                 LintIssue(
                     "warning",
-                    "Use ifNil:ifNotNil: instead of isNil/notNil with ifTrue:ifFalse: (nil-safe branching)",
+                    combined_msg,
                     class_name=class_name,
                     selector=selector,
                     is_class_method=is_class_method,
                 )
             )
-
-        for pat, bad, good in _NIL_SIMPLE_PATTERNS:
+        for pat, bad, good in simple_patterns:
             if pat.search(sanitized):
                 issues.append(
                     LintIssue(
                         "warning",
-                        f"Use {good} instead of {bad} (nil-safe branching)",
+                        f"Use {good} instead of {bad} ({label})",
                         class_name=class_name,
                         selector=selector,
                         is_class_method=is_class_method,
                     )
                 )
-
         return issues
+
+    def _check_nil_branching(
+        self,
+        sanitized: str,
+        class_name: str,
+        selector: str,
+        is_class_method: bool,
+    ) -> list[LintIssue]:
+        return self._check_branching(
+            sanitized,
+            _NIL_COMBINED_RE,
+            "Use ifNil:ifNotNil: instead of isNil/notNil with ifTrue:ifFalse: (nil-safe branching)",
+            _NIL_SIMPLE_PATTERNS,
+            "nil-safe branching",
+            class_name,
+            selector,
+            is_class_method,
+        )
 
     def _check_empty_branching(
         self,
-        body_text: str,
+        sanitized: str,
         class_name: str,
         selector: str,
         is_class_method: bool,
     ) -> list[LintIssue]:
-        sanitized = _sanitize_body(body_text)
-        issues: list[LintIssue] = []
-
-        if _EMPTY_COMBINED_RE.search(sanitized):
-            sanitized = _EMPTY_COMBINED_RE.sub("", sanitized)
-            issues.append(
-                LintIssue(
-                    "warning",
-                    "Use ifEmpty:ifNotEmpty: instead of isEmpty/notEmpty with ifTrue:ifFalse: (collection branching)",
-                    class_name=class_name,
-                    selector=selector,
-                    is_class_method=is_class_method,
-                )
-            )
-
-        for pat, bad, good in _EMPTY_SIMPLE_PATTERNS:
-            if pat.search(sanitized):
-                issues.append(
-                    LintIssue(
-                        "warning",
-                        f"Use {good} instead of {bad} (collection branching)",
-                        class_name=class_name,
-                        selector=selector,
-                        is_class_method=is_class_method,
-                    )
-                )
-
-        return issues
+        return self._check_branching(
+            sanitized,
+            _EMPTY_COMBINED_RE,
+            "Use ifEmpty:ifNotEmpty: instead of isEmpty/notEmpty with ifTrue:ifFalse: (collection branching)",
+            _EMPTY_SIMPLE_PATTERNS,
+            "collection branching",
+            class_name,
+            selector,
+            is_class_method,
+        )
 
     def _check_collection_access(
         self,
-        body_text: str,
+        sanitized: str,
         class_name: str,
         selector: str,
         is_class_method: bool,
     ) -> list[LintIssue]:
-        sanitized = _sanitize_body(body_text)
         issues: list[LintIssue] = []
 
         for pat, bad, good in _AT_NUMBER_PATTERNS:
