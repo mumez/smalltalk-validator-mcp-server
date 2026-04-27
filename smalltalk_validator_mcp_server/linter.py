@@ -50,6 +50,26 @@ _EMPTY_SIMPLE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bnotEmpty\s+ifFalse:"), "notEmpty ifFalse:", "ifEmpty:"),
 ]
 
+# Guard: exclude at:put:, at:ifAbsent:, and at: N + M (arithmetic) false positives
+_AT_ARG_GUARD = r"(?!\s*[-+*/])(?!\s*[A-Za-z_][A-Za-z0-9_]*:)"
+
+# at: 1..6 patterns that can be replaced with first/second/.../sixth
+_AT_NUMBER_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
+    (re.compile(rf"\bat:\s*1\b{_AT_ARG_GUARD}"), "at: 1", "first"),
+    (re.compile(rf"\bat:\s*2\b{_AT_ARG_GUARD}"), "at: 2", "second"),
+    (re.compile(rf"\bat:\s*3\b{_AT_ARG_GUARD}"), "at: 3", "third"),
+    (re.compile(rf"\bat:\s*4\b{_AT_ARG_GUARD}"), "at: 4", "fourth"),
+    (re.compile(rf"\bat:\s*5\b{_AT_ARG_GUARD}"), "at: 5", "fifth"),
+    (re.compile(rf"\bat:\s*6\b{_AT_ARG_GUARD}"), "at: 6", "sixth"),
+]
+
+# at: <receiver> size pattern that can be replaced with last
+# Excludes at: col size - N (arithmetic after size) to avoid false positives
+_AT_SIZE_RE = re.compile(
+    r"\bat:\s*\(?[A-Za-z_][A-Za-z0-9_]*\s+size\s*\)?(?!\s*[-+*/])",
+    re.DOTALL,
+)
+
 
 def _sanitize_body(body_text: str) -> str:
     """Remove comments, string literals, and symbol literals to avoid false positives."""
@@ -314,6 +334,14 @@ class TonelCSTLinter:
                     is_class_method,
                 )
             )
+            issues.extend(
+                self._check_collection_access(
+                    body_text,
+                    class_name,
+                    selector,
+                    is_class_method,
+                )
+            )
 
         return issues
 
@@ -478,6 +506,41 @@ class TonelCSTLinter:
                         is_class_method=is_class_method,
                     )
                 )
+
+        return issues
+
+    def _check_collection_access(
+        self,
+        body_text: str,
+        class_name: str,
+        selector: str,
+        is_class_method: bool,
+    ) -> list[LintIssue]:
+        sanitized = _sanitize_body(body_text)
+        issues: list[LintIssue] = []
+
+        for pat, bad, good in _AT_NUMBER_PATTERNS:
+            if pat.search(sanitized):
+                issues.append(
+                    LintIssue(
+                        "warning",
+                        f"Use {good} instead of {bad} (idiomatic collection access)",
+                        class_name=class_name,
+                        selector=selector,
+                        is_class_method=is_class_method,
+                    )
+                )
+
+        if _AT_SIZE_RE.search(sanitized):
+            issues.append(
+                LintIssue(
+                    "warning",
+                    "Use last instead of at: <collection> size (idiomatic collection access)",
+                    class_name=class_name,
+                    selector=selector,
+                    is_class_method=is_class_method,
+                )
+            )
 
         return issues
 
