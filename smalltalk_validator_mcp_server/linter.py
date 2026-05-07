@@ -541,7 +541,9 @@ class TonelCSTLinter:
             return []
 
         cat_lower = category.lower()
-        if "accessing" in cat_lower or "initializ" in cat_lower:
+        is_accessing = re.search(r"(^|-)accessing($|-)", cat_lower) is not None
+        is_initializing = "initializ" in cat_lower
+        if is_accessing or is_initializing:
             return []
 
         issues: list[LintIssue] = []
@@ -549,10 +551,15 @@ class TonelCSTLinter:
             line = line.strip()
             if not line:
                 continue
+            if re.match(r"^\|.*\|$", line):
+                continue
             for var in inst_vars:
+                direct_assignment = re.search(rf"\b{re.escape(var)}\s*:=", line)
+                direct_return = re.search(rf"\^\s*{re.escape(var)}\b", line)
+                direct_receiver = re.search(rf"\b{re.escape(var)}\b(?!\s*:=)", line)
+
                 if (
-                    re.search(rf"\b{re.escape(var)}\s*:=", line)
-                    or re.search(rf"^\^\s*{re.escape(var)}\b", line)
+                    direct_assignment or direct_return or direct_receiver
                 ) and "self" not in line.split(var)[0]:
                     issues.append(
                         LintIssue(
@@ -563,6 +570,5 @@ class TonelCSTLinter:
                             is_class_method=is_class_method,
                         )
                     )
-                    break
 
         return issues

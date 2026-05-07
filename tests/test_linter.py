@@ -451,6 +451,34 @@ class TestDirectAccessCheck:
         assert len(issues) == 1
         assert "amount" in issues[0].message
 
+    def test_warns_on_direct_message_send_receiver_in_regular_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "private", "amount add: 1"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "amount" in issues[0].message
+
+    def test_warns_for_multiple_direct_accesses_on_same_line(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #instVars : [ 'client', 'sessionId' ],\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #operations }\n"
+            "MyClass >> cancelPrompt [\n"
+            "    client cancelBy: [ :params | params sessionId: sessionId ]\n"
+            "]\n"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 2
+        messages = {i.message for i in issues}
+        assert "Direct access to 'client' (use self client)" in messages
+        assert "Direct access to 'sessionId' (use self sessionId)" in messages
+
     def test_no_warning_in_accessing_category_symbol(self):
         """{ #category : #accessing } — unquoted symbol"""
         content = self._CLASS_WITH_INST_VAR + self._method_in_category(
