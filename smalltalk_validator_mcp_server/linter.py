@@ -537,6 +537,9 @@ class TonelCSTLinter:
         category: str,
         inst_vars: list[str],
     ) -> list[LintIssue]:
+        if is_class_method:
+            return []
+
         if not inst_vars:
             return []
 
@@ -556,7 +559,7 @@ class TonelCSTLinter:
             for var in inst_vars:
                 direct_assignment = re.search(rf"\b{re.escape(var)}\s*:=", line)
                 direct_return = re.search(rf"\^\s*{re.escape(var)}\b", line)
-                direct_receiver = re.search(rf"\b{re.escape(var)}\b(?!\s*:=)", line)
+                direct_receiver = re.search(rf"\b{re.escape(var)}\b(?!\s*:)", line)
 
                 if (
                     direct_assignment or direct_return or direct_receiver

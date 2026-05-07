@@ -548,6 +548,27 @@ class TestDirectAccessCheck:
         issues = self._direct_access_issues(self._lint(content))
         assert len(issues) == 0
 
+    def test_no_warning_for_keyword_message_parts_matching_inst_var_names(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #instVars : [ 'sender', 'text', 'isThink' ],\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #instance }\n"
+            "MyClass class >> sender: sender text: text isThink: isThink [\n"
+            "    ^ self new\n"
+            "        sender: sender;\n"
+            "        text: text;\n"
+            "        isThink: isThink;\n"
+            "        yourself\n"
+            "]\n"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
     def test_no_warning_without_instance_variables(self):
         content = (
             "Class {\n"
