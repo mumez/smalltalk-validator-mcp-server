@@ -550,20 +550,29 @@ class TonelCSTLinter:
             return []
 
         issues: list[LintIssue] = []
+        prev_line_ends_with_self = False
         for line in body_text.strip().split("\n"):
             line = line.strip()
             if not line:
+                prev_line_ends_with_self = False
                 continue
             if re.match(r"^\|.*\|$", line):
+                prev_line_ends_with_self = False
                 continue
             for var in inst_vars:
                 direct_assignment = re.search(rf"\b{re.escape(var)}\s*:=", line)
                 direct_return = re.search(rf"\^\s*{re.escape(var)}\b", line)
-                direct_receiver = re.search(rf"\b{re.escape(var)}\b(?!\s*:)", line)
+                direct_receiver = False
+                for match in re.finditer(rf"\b{re.escape(var)}\b(?!\s*:)", line):
+                    prefix = line[: match.start()]
+                    if re.search(r"\bself\s*$", prefix):
+                        continue
+                    if prev_line_ends_with_self and not prefix:
+                        continue
+                    direct_receiver = True
+                    break
 
-                if (
-                    direct_assignment or direct_return or direct_receiver
-                ) and "self" not in line.split(var)[0]:
+                if direct_assignment or direct_return or direct_receiver:
                     issues.append(
                         LintIssue(
                             "warning",
@@ -573,5 +582,7 @@ class TonelCSTLinter:
                             is_class_method=is_class_method,
                         )
                     )
+
+            prev_line_ends_with_self = re.search(r"\bself\s*$", line) is not None
 
         return issues
