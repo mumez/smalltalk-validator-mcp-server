@@ -548,6 +548,41 @@ class TestDirectAccessCheck:
         issues = self._direct_access_issues(self._lint(content))
         assert len(issues) == 0
 
+    def test_no_warning_when_keyword_part_and_self_send_share_same_var_name(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #instVars : [ 'sessionId' ],\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #operations }\n"
+            "MyClass >> testMethod [\n"
+            "    params sessionId: self sessionId.\n"
+            "]\n"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_when_self_send_continues_on_next_line(self):
+        content = (
+            "Class {\n"
+            "    #name : #MyClass,\n"
+            "    #superclass : #Object,\n"
+            "    #instVars : [ 'someDictionary' ],\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #operations }\n"
+            "MyClass >> updateValue [\n"
+            "    ^ self\n"
+            "      someDictionary at: #key put: 3.\n"
+            "]\n"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
     def test_no_warning_for_keyword_message_parts_matching_inst_var_names(self):
         content = (
             "Class {\n"
