@@ -620,6 +620,61 @@ class TestDirectAccessCheck:
         issues = self._direct_access_issues(self._lint(content))
         assert len(issues) == 0
 
+    def test_no_warning_when_inst_var_name_is_string_literal_key(self):
+        content = (
+            "Class {\n"
+            "    #name : #RpError,\n"
+            "    #superclass : #Error,\n"
+            "    #instVars : [ 'code', 'type', 'otherData' ],\n"
+            "    #category : #'Ripple-Core'\n"
+            "}\n"
+            "\n"
+            "{ #category : #converting }\n"
+            "RpError >> asJson [\n"
+            "    | dict |\n"
+            "    dict := {\n"
+            "        'type' -> 'err'.\n"
+            "        'failureCode' -> self code.\n"
+            "        'failureType' -> self type.\n"
+            "        'message' -> self messageText } asDictionary.\n"
+            "    ^ dict\n"
+            "]\n"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_when_inst_var_name_is_symbol_literal_key(self):
+        content = self._CLASS_WITH_INST_VAR.replace(
+            "'amount'", "'type'"
+        ) + self._method_in_category(
+            "converting",
+            "dict := { #type -> 'err'. 'value' -> self type } asDictionary",
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_when_temporary_shadows_inst_var(self):
+        content = self._CLASS_WITH_INST_VAR.replace(
+            "'amount'", "'type'"
+        ) + self._method_in_category("private", "| type | type := 1")
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_when_block_argument_shadows_inst_var(self):
+        content = self._CLASS_WITH_INST_VAR.replace(
+            "'amount'", "'type'"
+        ) + self._method_in_category("private", "[ :type | ^ type ]")
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_warns_once_per_inst_var_in_method(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "private", "amount := 1.\n    ^ amount"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 1
+        assert "amount" in issues[0].message
+
 
 class TestIsKindOfUsageCheck:
     """Tests for discouraging isKindOf: checks in methods."""

@@ -74,6 +74,83 @@ def _sanitize_body(body_text: str) -> str:
     return sanitized
 
 
+def _method_formal_names(method_ref_node) -> set[str]:
+    """Return method argument names declared in a method_reference."""
+    if method_ref_node is None:
+        return set()
+
+    names: set[str] = set()
+    seen_arrow = False
+    for child in method_ref_node.children:
+        if child.type == ">>":
+            seen_arrow = True
+            continue
+        if seen_arrow and child.type == "identifier":
+            text = child.text.decode("utf-8") if child.text else ""
+            if text:
+                names.add(text)
+    return names
+
+
+def _temporary_names(method_body_node) -> set[str]:
+    """Return temporary variable names declared at the start of a method body."""
+    names: set[str] = set()
+    for child in method_body_node.children:
+        if child.type != "temporaries":
+            continue
+        for temp_child in child.children:
+            if temp_child.type == "identifier":
+                text = temp_child.text.decode("utf-8") if temp_child.text else ""
+                if text:
+                    names.add(text)
+    return names
+
+
+def _block_argument_names(block_node) -> set[str]:
+    """Return block argument names from a block node."""
+    names: set[str] = set()
+    for child in block_node.children:
+        if child.type != "block_argument":
+            continue
+        text = child.text.decode("utf-8") if child.text else ""
+        if text.startswith(":"):
+            text = text[1:]
+        if text:
+            names.add(text)
+    return names
+
+
+def _collect_direct_inst_var_accesses(
+    method_body_node,
+    inst_vars: list[str],
+    excluded_names: set[str],
+) -> set[str]:
+    """Return inst var names used as bare identifiers inside a method body."""
+    inst_var_set = set(inst_vars)
+    if not inst_var_set:
+        return set()
+
+    found: set[str] = set()
+
+    def walk(node, scope_excluded: set[str]) -> None:
+        if node.type == "block":
+            block_scope = scope_excluded | _block_argument_names(node)
+            for child in node.children:
+                walk(child, block_scope)
+            return
+
+        if node.type == "identifier":
+            name = node.text.decode("utf-8") if node.text else ""
+            if name in inst_var_set and name not in scope_excluded:
+                found.add(name)
+
+        for child in node.children:
+            walk(child, scope_excluded)
+
+    walk(method_body_node, excluded_names)
+    return found
+
+
 class LintIssue:
     """Represents a single linting issue."""
 
@@ -266,8 +343,10 @@ class TonelCSTLinter:
         issues: list[LintIssue] = []
 
         class_name, selector, is_class_method = "", "", False
+        method_ref_node = None
         for child in method_def_node.children:
             if child.type == "method_reference":
+                method_ref_node = child
                 class_name, selector, is_class_method = _parse_method_ref(child)
                 break
 
@@ -289,7 +368,8 @@ class TonelCSTLinter:
             )
             issues.extend(
                 self._check_direct_access(
-                    body_text,
+                    body_node,
+                    method_ref_node,
                     class_name,
                     selector,
                     is_class_method,
@@ -530,17 +610,15 @@ class TonelCSTLinter:
 
     def _check_direct_access(
         self,
-        body_text: str,
+        body_node,
+        method_ref_node,
         class_name: str,
         selector: str,
         is_class_method: bool,
         category: str,
         inst_vars: list[str],
     ) -> list[LintIssue]:
-        if is_class_method:
-            return []
-
-        if not inst_vars:
+        if is_class_method or not inst_vars:
             return []
 
         cat_lower = category.lower()
@@ -549,40 +627,16 @@ class TonelCSTLinter:
         if is_accessing or is_initializing:
             return []
 
-        issues: list[LintIssue] = []
-        prev_line_ends_with_self = False
-        for line in body_text.strip().split("\n"):
-            line = line.strip()
-            if not line:
-                prev_line_ends_with_self = False
-                continue
-            if re.match(r"^\|.*\|$", line):
-                prev_line_ends_with_self = False
-                continue
-            for var in inst_vars:
-                direct_assignment = re.search(rf"\b{re.escape(var)}\s*:=", line)
-                direct_return = re.search(rf"\^\s*{re.escape(var)}\b", line)
-                direct_receiver = False
-                for match in re.finditer(rf"\b{re.escape(var)}\b(?!\s*:)", line):
-                    prefix = line[: match.start()]
-                    if re.search(r"\bself\s*$", prefix):
-                        continue
-                    if prev_line_ends_with_self and not prefix:
-                        continue
-                    direct_receiver = True
-                    break
+        excluded = _method_formal_names(method_ref_node) | _temporary_names(body_node)
+        accessed = _collect_direct_inst_var_accesses(body_node, inst_vars, excluded)
 
-                if direct_assignment or direct_return or direct_receiver:
-                    issues.append(
-                        LintIssue(
-                            "warning",
-                            f"Direct access to '{var}' (use self {var})",
-                            class_name=class_name,
-                            selector=selector,
-                            is_class_method=is_class_method,
-                        )
-                    )
-
-            prev_line_ends_with_self = re.search(r"\bself\s*$", line) is not None
-
-        return issues
+        return [
+            LintIssue(
+                "warning",
+                f"Direct access to '{var}' (use self {var})",
+                class_name=class_name,
+                selector=selector,
+                is_class_method=is_class_method,
+            )
+            for var in sorted(accessed)
+        ]
