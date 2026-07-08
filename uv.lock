@@ -1391,7 +1391,7 @@ dev = [
 requires-dist = [
     { name = "fastmcp", specifier = ">=3.2.4" },
     { name = "tree-sitter", specifier = ">=0.22.0" },
-    { name = "tree-sitter-tonel-smalltalk", git = "https://github.com/mumez/tree-sitter-tonel-smalltalk.git?tag=v0.2.2" },
+    { name = "tree-sitter-tonel-smalltalk", git = "https://github.com/mumez/tree-sitter-tonel-smalltalk.git?tag=v0.2.3" },
 ]
 
 [package.metadata.requires-dev]
@@ -1528,8 +1528,8 @@ wheels = [
 
 [[package]]
 name = "tree-sitter-tonel-smalltalk"
-version = "0.2.2"
-source = { git = "https://github.com/mumez/tree-sitter-tonel-smalltalk.git?tag=v0.2.2#2ecd86f9367ab26e98fd7f8190b1a1f4bc9195c9" }
+version = "0.2.3"
+source = { git = "https://github.com/mumez/tree-sitter-tonel-smalltalk.git?tag=v0.2.3#0d5a212b6d93f3e024f10f00d962f9b252b1014b" }
 dependencies = [
     { name = "tree-sitter" },
 ]
