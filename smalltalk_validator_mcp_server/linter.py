@@ -64,6 +64,13 @@ _AT_SIZE_RE = re.compile(
     re.DOTALL,
 )
 
+# Approximates "collaborators" for the class-comment importance score: any
+# capitalized identifier referenced in a method body is treated as a
+# reference to another class.
+_CAPITALIZED_IDENTIFIER_RE = re.compile(r"\b[A-Z][A-Za-z0-9_]*\b")
+
+_TEST_CLASS_SUFFIXES = ("Test", "Tests", "TestCase")
+
 
 def _sanitize_body(body_text: str) -> str:
     """Remove comments, string literals, and symbol literals to avoid false positives."""
@@ -254,21 +261,28 @@ class TonelCSTLinter:
 
     def _run_checks(self, root) -> list[LintIssue]:
         issues: list[LintIssue] = []
-        class_name, inst_vars, class_vars = self._extract_class_info(root)
+        class_name, inst_vars, class_vars, def_type = self._extract_class_info(root)
+
+        method_nodes = [
+            child for child in root.children if child.type == "method_definition"
+        ]
 
         if class_name:
             issues.extend(self._check_class_prefix(class_name))
             issues.extend(self._check_instance_variables(class_name, inst_vars))
             issues.extend(self._check_singleton_class_vars(class_name, class_vars))
+            if def_type == "class_definition":
+                issues.extend(
+                    self._check_class_comment(root, class_name, inst_vars, method_nodes)
+                )
 
-        for child in root.children:
-            if child.type == "method_definition":
-                issues.extend(self._check_method(child, inst_vars))
+        for method_node in method_nodes:
+            issues.extend(self._check_method(method_node, inst_vars))
 
         return issues
 
-    def _extract_class_info(self, root) -> tuple[str, list[str], list[str]]:
-        """Return (class_name, inst_vars, class_vars) from the source_file's definition node."""
+    def _extract_class_info(self, root) -> tuple[str, list[str], list[str], str]:
+        """Return (class_name, inst_vars, class_vars, def_type) from the source_file's definition node."""
         for child in root.children:
             if child.type != "definition":
                 continue
@@ -288,8 +302,8 @@ class TonelCSTLinter:
                     )
                     inst_vars = _extract_var_list(ston_child, "#instVars")
                     class_vars = _extract_var_list(ston_child, "#classVars")
-                    return class_name or "", inst_vars, class_vars
-        return "", [], []
+                    return class_name or "", inst_vars, class_vars, def_child.type
+        return "", [], [], ""
 
     def _check_class_prefix(self, class_name: str) -> list[LintIssue]:
         if class_name.startswith("BaselineOf") or class_name.endswith("Test"):
@@ -337,6 +351,69 @@ class TonelCSTLinter:
             )
             for var in class_vars
             if var in self._SINGLETON_CLASS_VAR_NAMES
+        ]
+
+    # Below this method count, a class is considered a "simple utility class"
+    # and is exempt from the class-comment check regardless of its score.
+    _CLASS_COMMENT_MIN_METHODS = 5
+    _CLASS_COMMENT_MODERATE_SCORE = 10
+    _CLASS_COMMENT_HIGH_SCORE = 30
+
+    def _has_class_comment(self, root) -> bool:
+        return any(child.type == "class_comment" for child in root.children)
+
+    def _estimate_collaborators(self, method_nodes, class_name: str) -> int:
+        """Approximate the number of collaborator classes referenced from method bodies."""
+        collaborators: set[str] = set()
+        for method_node in method_nodes:
+            body_node = None
+            for child in method_node.children:
+                if child.type == "method_body":
+                    body_node = child
+                    break
+            if body_node is None or not body_node.text:
+                continue
+            sanitized = _sanitize_body(body_node.text.decode("utf-8"))
+            for match in _CAPITALIZED_IDENTIFIER_RE.finditer(sanitized):
+                name = match.group(0)
+                if name != class_name:
+                    collaborators.add(name)
+        return len(collaborators)
+
+    def _class_comment_score(
+        self, method_nodes, inst_vars: list[str], class_name: str, loc: int
+    ) -> float:
+        collaborators = self._estimate_collaborators(method_nodes, class_name)
+        return len(method_nodes) * 2 + len(inst_vars) * 3 + collaborators * 2 + loc / 50
+
+    def _check_class_comment(
+        self,
+        root,
+        class_name: str,
+        inst_vars: list[str],
+        method_nodes,
+    ) -> list[LintIssue]:
+        if class_name.startswith("BaselineOf") or class_name.endswith(
+            _TEST_CLASS_SUFFIXES
+        ):
+            return []
+        if len(method_nodes) < self._CLASS_COMMENT_MIN_METHODS:
+            return []
+        if self._has_class_comment(root):
+            return []
+
+        loc = root.end_point[0] + 1
+        score = self._class_comment_score(method_nodes, inst_vars, class_name, loc)
+        if score < self._CLASS_COMMENT_MODERATE_SCORE:
+            return []
+
+        priority = "high" if score >= self._CLASS_COMMENT_HIGH_SCORE else "moderate"
+        return [
+            LintIssue(
+                "warning",
+                f"Missing class comment ({priority} priority, complexity score {score:.1f})",
+                class_name=class_name,
+            )
         ]
 
     def _check_method(self, method_def_node, inst_vars: list[str]) -> list[LintIssue]:
