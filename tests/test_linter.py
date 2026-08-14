@@ -267,6 +267,83 @@ class TestSingletonClassVarCheck:
         assert len(issues) == 2
 
 
+class TestClassCommentCheck:
+    """Tests for missing class comment detection in TonelCSTLinter."""
+
+    def _lint(self, content: str):
+        return TonelCSTLinter().lint(content)
+
+    def _comment_issues(self, issues):
+        return [i for i in issues if "Missing class comment" in i.message]
+
+    def _complex_class(self, name: str = "MpFoo", commented: bool = False) -> str:
+        header = '"\nI do complex things.\n"\n' if commented else ""
+        return (
+            f"{header}"
+            "Class {\n"
+            f"    #name : #{name},\n"
+            "    #superclass : #Object,\n"
+            "    #instVars : [ 'a', 'b', 'c', 'd' ],\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            f"{name} >> a [ ^ a ]\n"
+            f"{name} >> b [ ^ b ]\n"
+            f"{name} >> c [ ^ c ]\n"
+            f"{name} >> d [ ^ d ]\n"
+            f"{name} >> doSomething [ | x | x := OrderedCollection new. ^ x ]\n"
+        )
+
+    def test_warns_for_complex_class_without_comment(self):
+        issues = self._comment_issues(self._lint(self._complex_class()))
+        assert len(issues) == 1
+        assert issues[0].severity == "warning"
+        assert issues[0].class_name == "MpFoo"
+
+    def test_no_warning_when_class_comment_present(self):
+        issues = self._comment_issues(self._lint(self._complex_class(commented=True)))
+        assert len(issues) == 0
+
+    def test_no_warning_for_simple_class(self):
+        content = (
+            "Class {\n"
+            "    #name : #MpBar,\n"
+            "    #superclass : #Object,\n"
+            "    #instVars : [ 'x' ],\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "MpBar >> x [ ^ x ]\n"
+        )
+        issues = self._comment_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_test_class(self):
+        issues = self._comment_issues(self._lint(self._complex_class(name="MpFooTest")))
+        assert len(issues) == 0
+
+    def test_no_warning_for_baseline_class(self):
+        issues = self._comment_issues(
+            self._lint(self._complex_class(name="BaselineOfMp"))
+        )
+        assert len(issues) == 0
+
+    def test_no_warning_for_extension_definition(self):
+        content = (
+            "Extension {\n"
+            "    #name : #MpFoo\n"
+            "}\n"
+            "\n"
+            "MpFoo >> a [ ^ a ]\n"
+            "MpFoo >> b [ ^ b ]\n"
+            "MpFoo >> c [ ^ c ]\n"
+            "MpFoo >> d [ ^ d ]\n"
+            "MpFoo >> doSomething [ | x | x := OrderedCollection new. ^ x ]\n"
+        )
+        issues = self._comment_issues(self._lint(content))
+        assert len(issues) == 0
+
+
 class TestOwnClassDirectReferenceCheck:
     """Tests for direct own-class references that should use self/self class."""
 

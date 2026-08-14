@@ -5,6 +5,7 @@ MCP Server for validating Tonel formatted Smalltalk source code.
 from typing import Any
 
 from fastmcp import Context, FastMCP
+from mcp.types import ToolAnnotations
 
 from .core import (
     lint_tonel_smalltalk_from_file_impl,
@@ -18,7 +19,16 @@ from .core import (
 app = FastMCP("smalltalk-validator-mcp-server")
 
 
-@app.tool("validate_tonel_smalltalk_from_file")
+@app.tool(
+    "validate_tonel_smalltalk_from_file",
+    annotations=ToolAnnotations(
+        title="Validate Tonel Smalltalk File",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
 def validate_tonel_smalltalk_from_file(
     _: Context, file_path: str, options: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -36,7 +46,16 @@ def validate_tonel_smalltalk_from_file(
     return validate_tonel_smalltalk_from_file_impl(file_path, options)
 
 
-@app.tool("validate_tonel_smalltalk")
+@app.tool(
+    "validate_tonel_smalltalk",
+    annotations=ToolAnnotations(
+        title="Validate Tonel Smalltalk Content",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
 def validate_tonel_smalltalk(
     _: Context, file_content: str, options: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -54,7 +73,16 @@ def validate_tonel_smalltalk(
     return validate_tonel_smalltalk_impl(file_content, options)
 
 
-@app.tool("validate_smalltalk_method_body")
+@app.tool(
+    "validate_smalltalk_method_body",
+    annotations=ToolAnnotations(
+        title="Validate Smalltalk Method Body",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
 def validate_smalltalk_method_body(
     _: Context, method_body_content: str
 ) -> dict[str, Any]:
@@ -70,7 +98,16 @@ def validate_smalltalk_method_body(
     return validate_smalltalk_method_body_impl(method_body_content)
 
 
-@app.tool("lint_tonel_smalltalk_from_file")
+@app.tool(
+    "lint_tonel_smalltalk_from_file",
+    annotations=ToolAnnotations(
+        title="Lint Tonel Smalltalk File",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
 def lint_tonel_smalltalk_from_file(_: Context, file_path: str) -> dict[str, Any]:
     """
     Lint Tonel formatted Smalltalk source code from a file.
@@ -84,7 +121,16 @@ def lint_tonel_smalltalk_from_file(_: Context, file_path: str) -> dict[str, Any]
     return lint_tonel_smalltalk_from_file_impl(file_path)
 
 
-@app.tool("lint_tonel_smalltalk")
+@app.tool(
+    "lint_tonel_smalltalk",
+    annotations=ToolAnnotations(
+        title="Lint Tonel Smalltalk Content",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
 def lint_tonel_smalltalk(_: Context, file_content: str) -> dict[str, Any]:
     """
     Lint Tonel formatted Smalltalk source code from content string.
