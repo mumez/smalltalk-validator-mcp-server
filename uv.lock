@@ -1667,7 +1667,7 @@ dev = [
 requires-dist = [
     { name = "fastmcp", specifier = ">=3.4.4" },
     { name = "tree-sitter", specifier = ">=0.26.0" },
-    { name = "tree-sitter-tonel-smalltalk", specifier = ">=0.2.4" },
+    { name = "tree-sitter-tonel-smalltalk", specifier = ">=0.2.6" },
 ]
 
 [package.metadata.requires-dev]
@@ -1809,19 +1809,19 @@ wheels = [
 
 [[package]]
 name = "tree-sitter-tonel-smalltalk"
-version = "0.2.4"
+version = "0.2.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "tree-sitter" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cd/ee/df8ab672b7984726b5700e44f2c69a643ecc8194ea3f32c497bacd223662/tree_sitter_tonel_smalltalk-0.2.4.tar.gz", hash = "sha256:e58be380f1ff7d52f4fcd38bde7d78863f5fc13bf72d5b6363397d765014182b", size = 27172, upload-time = "2026-08-18T07:59:36.746Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/e3/af256931f821a9fa3d1ea0e6da63c90d38bab5132c2c0e09c8c578d67453/tree_sitter_tonel_smalltalk-0.2.6.tar.gz", hash = "sha256:ecbabd3e2d7f20215b6e4b0b37450fa40fa2c1e8e47079446a987057e84685f7", size = 27178, upload-time = "2026-08-18T08:16:36.348Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/a5/e6e366fa7f395667661d022d98b3aaa1d3709fd595998ebb83f1da954bb7/tree_sitter_tonel_smalltalk-0.2.4-cp310-abi3-macosx_10_9_x86_64.whl", hash = "sha256:490521a8fac13047944c90ea592bc6553ae48af9ebed379cbc8718e75db1ca76", size = 18967, upload-time = "2026-08-18T07:59:30.048Z" },
-    { url = "https://files.pythonhosted.org/packages/af/2d/d0b4cce830b78083e693ccfdeb78c8c3ae88e99fdc92b3766a09a359c7bb/tree_sitter_tonel_smalltalk-0.2.4-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:f4ba20e783386c5aa81e3722692efa693e01d2b532f29953d36bef34798ab524", size = 19326, upload-time = "2026-08-18T07:59:31.27Z" },
-    { url = "https://files.pythonhosted.org/packages/2f/59/e3eabf1bd10c0638d6db67d2c3b65ee6d164b264a4e92a616d61d19a7bb0/tree_sitter_tonel_smalltalk-0.2.4-cp310-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:72caeb6b88bd18d378547d5d08a43650a19d2892b84bd5cad02884cae7c23f1a", size = 38481, upload-time = "2026-08-18T07:59:32.499Z" },
-    { url = "https://files.pythonhosted.org/packages/27/b1/3fcef88c5c50530b71107916cb095bec06537121314ff0f885f52ba5358e/tree_sitter_tonel_smalltalk-0.2.4-cp310-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0eed02aef2eb4dc096a0df4e943cbbbc299bfc30d31ed32eb8c8a28ccb62fe98", size = 41614, upload-time = "2026-08-18T07:59:33.564Z" },
-    { url = "https://files.pythonhosted.org/packages/3b/bc/f24052ae7589059ee6af25dd17e0f1304a8c342e2a65661d75f30813a9b8/tree_sitter_tonel_smalltalk-0.2.4-cp310-abi3-win32.whl", hash = "sha256:c5df3ecfb69929ca1ca33ab224503aa632e2532e001e1bfd2b9eeccabc2dbe1e", size = 20272, upload-time = "2026-08-18T07:59:34.613Z" },
-    { url = "https://files.pythonhosted.org/packages/50/80/f4f8e3a9851970be5cf4fc91e778117193eafb68fd504f80fbd567eb458a/tree_sitter_tonel_smalltalk-0.2.4-cp310-abi3-win_amd64.whl", hash = "sha256:92830530b8f20ed63bae0665199622beda834dd49d686edf3e445a2508601c28", size = 20162, upload-time = "2026-08-18T07:59:35.622Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/14/7c175a417cad4b41fd0e0e36b82f8e3e002c42863a24e1ffcb5737655937/tree_sitter_tonel_smalltalk-0.2.6-cp310-abi3-macosx_10_9_x86_64.whl", hash = "sha256:837ec6c5dc1952fa673bea399be3aef96a71991fe20b2b22ed7b19891d5d5cd8", size = 18969, upload-time = "2026-08-18T08:16:29.469Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/0d/80aedef106028db4f10148093bba152031d5346bf0fd18e2f0c81b22190a/tree_sitter_tonel_smalltalk-0.2.6-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:3b3d9a0fca77b4e91377c845bc423ea87cecc259839e7305e1879d1315d6ac58", size = 19323, upload-time = "2026-08-18T08:16:30.731Z" },
+    { url = "https://files.pythonhosted.org/packages/18/63/57a30ccff94c38ccd1b60d147dbcfa7fc530500e851671aca2106fef8864/tree_sitter_tonel_smalltalk-0.2.6-cp310-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:e0f2bcf2725c3f4a96e91e745f5df28d543f0f779d8f35243b05a273dc58fcec", size = 38484, upload-time = "2026-08-18T08:16:31.851Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/be/334a0a2d6f7dc024f66a48e350be2e461e8c175c695f2309400d6eea9887/tree_sitter_tonel_smalltalk-0.2.6-cp310-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:827849a6c526e9f6396e933e0e32d344dbdd420df845068fea100ff4ea657662", size = 41616, upload-time = "2026-08-18T08:16:32.932Z" },
+    { url = "https://files.pythonhosted.org/packages/99/db/8ac8c82524ae7c6eb3bd55cb2a9ecffc341034322ab01d55b8e77656f10e/tree_sitter_tonel_smalltalk-0.2.6-cp310-abi3-win32.whl", hash = "sha256:0fa45bd88e2f632560c9f87c48d2355c6d929c63578b2dc56fdce91086e6ed96", size = 20279, upload-time = "2026-08-18T08:16:34.008Z" },
+    { url = "https://files.pythonhosted.org/packages/01/89/b89228417e808647c67711fb99cbf6e91820978b8fa1107bd742c198512a/tree_sitter_tonel_smalltalk-0.2.6-cp310-abi3-win_amd64.whl", hash = "sha256:adaf8daa29f32d5844e6b9bb54f9bb28aeb237c97b22fb46a0a54d3a098bfa09", size = 20168, upload-time = "2026-08-18T08:16:35.198Z" },
 ]
 
 [[package]]
