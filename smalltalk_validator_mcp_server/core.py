@@ -21,6 +21,7 @@ def _convert_lint_issues_to_dicts(issues: list) -> list[dict[str, Any]]:
             "class_name": issue.class_name,
             "selector": issue.selector,
             "is_class_method": issue.is_class_method,
+            "reference_url": issue.reference_url,
         }
         for issue in issues
     ]

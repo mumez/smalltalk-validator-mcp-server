@@ -71,6 +71,25 @@ _CAPITALIZED_IDENTIFIER_RE = re.compile(r"\b[A-Z][A-Za-z0-9_]*\b")
 
 _TEST_CLASS_SUFFIXES = ("Test", "Tests", "TestCase")
 
+LINT_CHECKS_DOC_URL = "https://github.com/mumez/smalltalk-validator-mcp-server/blob/main/docs/lint-checks.md"
+
+# Simple getter: "^ var", "^ var ifNil: [ default ]" or
+# "^ var ifNil: [ var := default ]", with optional trailing periods.
+# The shape of the default expression is not inspected (domains vary:
+# Foo new, Foo default, self defaultFooClass new, ...); only the getter's
+# own variable is exempted, so other inst vars used there still warn.
+_SIMPLE_GETTER_RE = re.compile(
+    r"\[?\s*\^\s*(?P<var>[A-Za-z_][A-Za-z0-9_]*)"
+    r"(?:\s+ifNil:\s*\[.+\])?"
+    r"\s*\.?\s*\]?",
+    re.DOTALL,
+)
+
+
+def _category_matches(cat_lower: str, token: str) -> bool:
+    """Return True if token is a hyphen-delimited part of a lowercased category."""
+    return re.search(rf"(^|-){token}($|-)", cat_lower) is not None
+
 
 def _sanitize_body(body_text: str) -> str:
     """Remove comments, string literals, and symbol literals to avoid false positives."""
@@ -168,12 +187,16 @@ class LintIssue:
         class_name: str | None = None,
         selector: str | None = None,
         is_class_method: bool | None = None,
+        anchor: str | None = None,
     ) -> None:
         self.severity = severity
         self.message = message
         self.class_name = class_name
         self.selector = selector
         self.is_class_method = is_class_method
+        self.reference_url = (
+            f"{LINT_CHECKS_DOC_URL}#{anchor}" if anchor else LINT_CHECKS_DOC_URL
+        )
 
 
 def _selector_from_after_arrow(after_arrow: str) -> str:
@@ -318,6 +341,7 @@ class TonelCSTLinter:
                     "warning",
                     "No class prefix (consider adding project prefix)",
                     class_name=class_name,
+                    anchor="class-naming-convention",
                 )
             ]
         return []
@@ -331,6 +355,7 @@ class TonelCSTLinter:
                     "warning",
                     f"Too many instance variables: {len(inst_vars)} (consider splitting responsibilities)",
                     class_name=class_name,
+                    anchor="too-many-instance-variables",
                 )
             ]
         return []
@@ -348,6 +373,7 @@ class TonelCSTLinter:
                 "warning",
                 f"Class variable '{var}' looks like a singleton holder (use a class instance variable instead)",
                 class_name=class_name,
+                anchor="singleton-class-variable",
             )
             for var in class_vars
             if var in self._SINGLETON_CLASS_VAR_NAMES
@@ -413,6 +439,7 @@ class TonelCSTLinter:
                 "warning",
                 f"Missing class comment ({priority} priority, complexity score {score:.1f})",
                 class_name=class_name,
+                anchor="missing-class-comment",
             )
         ]
 
@@ -523,6 +550,7 @@ class TonelCSTLinter:
                     class_name=class_name,
                     selector=selector,
                     is_class_method=is_class_method,
+                    anchor="method-too-long",
                 )
             ]
         return [
@@ -532,6 +560,7 @@ class TonelCSTLinter:
                 class_name=class_name,
                 selector=selector,
                 is_class_method=is_class_method,
+                anchor="method-too-long",
             )
         ]
 
@@ -556,6 +585,7 @@ class TonelCSTLinter:
                 class_name=class_name,
                 selector=selector,
                 is_class_method=is_class_method,
+                anchor="direct-own-class-reference",
             )
         ]
 
@@ -576,6 +606,7 @@ class TonelCSTLinter:
                 class_name=class_name,
                 selector=selector,
                 is_class_method=is_class_method,
+                anchor="iskindof-usage",
             )
         ]
 
@@ -586,6 +617,7 @@ class TonelCSTLinter:
         combined_msg: str,
         simple_patterns: list[tuple[re.Pattern[str], str, str]],
         label: str,
+        anchor: str,
         class_name: str,
         selector: str,
         is_class_method: bool,
@@ -600,6 +632,7 @@ class TonelCSTLinter:
                     class_name=class_name,
                     selector=selector,
                     is_class_method=is_class_method,
+                    anchor=anchor,
                 )
             )
         for pat, bad, good in simple_patterns:
@@ -611,6 +644,7 @@ class TonelCSTLinter:
                         class_name=class_name,
                         selector=selector,
                         is_class_method=is_class_method,
+                        anchor=anchor,
                     )
                 )
         return issues
@@ -628,6 +662,7 @@ class TonelCSTLinter:
             "Use ifNil:ifNotNil: instead of isNil/notNil with ifTrue:ifFalse: (nil-safe branching)",
             _NIL_SIMPLE_PATTERNS,
             "nil-safe branching",
+            "nil-safe-branching",
             class_name,
             selector,
             is_class_method,
@@ -646,6 +681,7 @@ class TonelCSTLinter:
             "Use ifEmpty:ifNotEmpty: instead of isEmpty/notEmpty with ifTrue:ifFalse: (collection branching)",
             _EMPTY_SIMPLE_PATTERNS,
             "collection branching",
+            "collection-branching",
             class_name,
             selector,
             is_class_method,
@@ -669,6 +705,7 @@ class TonelCSTLinter:
                         class_name=class_name,
                         selector=selector,
                         is_class_method=is_class_method,
+                        anchor="idiomatic-collection-access",
                     )
                 )
 
@@ -680,6 +717,7 @@ class TonelCSTLinter:
                     class_name=class_name,
                     selector=selector,
                     is_class_method=is_class_method,
+                    anchor="idiomatic-collection-access",
                 )
             )
 
@@ -699,13 +737,17 @@ class TonelCSTLinter:
             return []
 
         cat_lower = category.lower()
-        is_accessing = re.search(r"(^|-)accessing($|-)", cat_lower) is not None
-        is_initializing = "initializ" in cat_lower
-        if is_accessing or is_initializing:
+        if _category_matches(cat_lower, "accessing") or "initializ" in cat_lower:
             return []
 
         excluded = _method_formal_names(method_ref_node) | _temporary_names(body_node)
         accessed = _collect_direct_inst_var_accesses(body_node, inst_vars, excluded)
+
+        if _category_matches(cat_lower, "testing"):
+            body_text = body_node.text.decode("utf-8") if body_node.text else ""
+            m = _SIMPLE_GETTER_RE.fullmatch(_sanitize_body(body_text).strip())
+            if m:
+                accessed.discard(m.group("var"))
 
         return [
             LintIssue(
@@ -714,6 +756,7 @@ class TonelCSTLinter:
                 class_name=class_name,
                 selector=selector,
                 is_class_method=is_class_method,
+                anchor="direct-instance-variable-access",
             )
             for var in sorted(accessed)
         ]

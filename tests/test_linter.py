@@ -3,7 +3,9 @@ Unit tests for TonelCSTLinter.
 """
 
 import os
+import re
 import tempfile
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from smalltalk_validator_mcp_server.core import (
@@ -12,7 +14,10 @@ from smalltalk_validator_mcp_server.core import (
 from smalltalk_validator_mcp_server.core import (
     lint_tonel_smalltalk_impl as lint_tonel_smalltalk,
 )
-from smalltalk_validator_mcp_server.linter import TonelCSTLinter
+from smalltalk_validator_mcp_server.linter import (
+    LINT_CHECKS_DOC_URL,
+    TonelCSTLinter,
+)
 
 _CLASS_HEADER = (
     "Class {\n"
@@ -68,6 +73,7 @@ class TestLintTonelSmalltalkFromFile:
         mock_issue.class_name = "TestClass"
         mock_issue.selector = "longMethod"
         mock_issue.is_class_method = False
+        mock_issue.reference_url = "https://example.com/lint-checks.md#method-too-long"
 
         mock_linter = Mock()
         mock_linter.lint_from_file.return_value = [mock_issue]
@@ -92,6 +98,10 @@ class TestLintTonelSmalltalkFromFile:
             assert result["issue_list"][0]["class_name"] == "TestClass"
             assert result["issue_list"][0]["selector"] == "longMethod"
             assert result["issue_list"][0]["is_class_method"] is False
+            assert (
+                result["issue_list"][0]["reference_url"]
+                == "https://example.com/lint-checks.md#method-too-long"
+            )
         finally:
             os.unlink(temp_path)
 
@@ -617,6 +627,93 @@ class TestDirectAccessCheck:
         )
         issues = self._direct_access_issues(self._lint(content))
         assert len(issues) == 0
+
+    def test_no_warning_for_simple_getter_in_testing_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "testing", "^ amount"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_lazy_init_getter_in_testing_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "testing", "^ amount ifNil: [amount := false]"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_ifnil_default_getter_in_testing_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "testing", "^ amount ifNil: [ false ]."
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_no_warning_for_any_default_expression_in_testing_category(self):
+        for default in (
+            "amount := XxClass default",
+            "amount := XxClass current",
+            "amount := self defaultXxClass new",
+            "XxClass current",
+        ):
+            content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+                "testing", f"^ amount ifNil: [ {default} ]"
+            )
+            issues = self._direct_access_issues(self._lint(content))
+            assert len(issues) == 0, default
+
+    def test_warns_for_other_inst_var_in_getter_default_in_testing_category(self):
+        for default in (
+            "other := false",
+            "other",
+            "amount := false. other := true",
+            "amount := other",
+        ):
+            content = (
+                "Class {\n"
+                "    #name : #MyClass,\n"
+                "    #superclass : #Object,\n"
+                "    #instVars : [ 'amount', 'other' ],\n"
+                "    #category : #SomePackage\n"
+                "}\n"
+                "\n"
+            ) + self._method_in_category("testing", f"^ amount ifNil: [ {default} ]")
+            issues = self._direct_access_issues(self._lint(content))
+            assert [i.message for i in issues] == [
+                "Direct access to 'other' (use self other)"
+            ], default
+
+    def test_no_warning_for_simple_getter_in_quoted_testing_category(self):
+        content = (
+            self._CLASS_WITH_INST_VAR + "{ #category : 'testing' }\n"
+            "MyClass >> isDirty [\n"
+            '    "Answer whether dirty"\n'
+            "\t^ amount\n"
+            "]\n"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 0
+
+    def test_warns_for_non_getter_in_testing_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "testing", "self assert: amount equals: 42"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 1
+
+    def test_warns_for_computed_return_in_testing_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "testing", "^ amount > 0"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 1
+
+    def test_warns_for_simple_getter_in_non_testing_category(self):
+        content = self._CLASS_WITH_INST_VAR + self._method_in_category(
+            "private", "^ amount ifNil: [amount := false]"
+        )
+        issues = self._direct_access_issues(self._lint(content))
+        assert len(issues) == 1
 
     def test_no_warning_when_using_self_message_send(self):
         content = self._CLASS_WITH_INST_VAR + self._method_in_category(
@@ -1178,3 +1275,64 @@ class TestCollectionAccessCheck:
         messages = {i.message for i in issues}
         assert any("first" in m for m in messages)
         assert any("second" in m for m in messages)
+
+
+class TestReferenceUrl:
+    """Tests for LintIssue.reference_url pointing into docs/lint-checks.md."""
+
+    _DOC_PATH = Path(__file__).parent.parent / "docs" / "lint-checks.md"
+
+    def _doc_anchors(self) -> set[str]:
+        """Return GitHub-style heading anchors of docs/lint-checks.md."""
+        anchors = set()
+        for line in self._DOC_PATH.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"#+\s+(.*)", line)
+            if m:
+                slug = re.sub(r"[^\w\- ]", "", m.group(1).lower())
+                anchors.add(slug.replace(" ", "-"))
+        return anchors
+
+    def test_every_check_links_to_existing_doc_section(self):
+        inst_vars = ", ".join(f"'v{i}'" for i in range(11))
+        content = (
+            "Class {\n"
+            "    #name : #Foo,\n"
+            "    #superclass : #Object,\n"
+            f"    #instVars : [ {inst_vars} ],\n"
+            "    #classVars : [ 'Default' ],\n"
+            "    #category : #SomePackage\n"
+            "}\n"
+            "\n"
+            "{ #category : #private }\n"
+            "Foo >> check: col [\n"
+            "    v0 := Foo new.\n"
+            "    (col isKindOf: Array) ifTrue: [ ^ col at: 1 ].\n"
+            "    col isNil ifTrue: [ ^ nil ].\n"
+            "    col isEmpty ifTrue: [ ^ nil ].\n" + "    col yourself.\n" * 30 + "]\n"
+        )
+        content += "".join(
+            f"{{ #category : #accessing }}\nFoo >> m{i} [\n    ^ {i}\n]\n"
+            for i in range(5)
+        )
+        issues = TonelCSTLinter().lint(content)
+        anchors = {i.reference_url.removeprefix(LINT_CHECKS_DOC_URL) for i in issues}
+        assert anchors == {
+            "#class-naming-convention",
+            "#too-many-instance-variables",
+            "#singleton-class-variable",
+            "#missing-class-comment",
+            "#method-too-long",
+            "#direct-instance-variable-access",
+            "#direct-own-class-reference",
+            "#iskindof-usage",
+            "#nil-safe-branching",
+            "#collection-branching",
+            "#idiomatic-collection-access",
+        }
+        doc_anchors = self._doc_anchors()
+        for anchor in anchors:
+            assert anchor.removeprefix("#") in doc_anchors, anchor
+
+    def test_file_read_error_links_to_doc_top(self, tmp_path):
+        issues = TonelCSTLinter().lint_from_file(tmp_path / "missing.st")
+        assert issues[0].reference_url == LINT_CHECKS_DOC_URL
