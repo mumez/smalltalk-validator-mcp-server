@@ -75,14 +75,20 @@ LINT_CHECKS_DOC_URL = "https://github.com/mumez/smalltalk-validator-mcp-server/b
 
 # Simple getter: "^ var", "^ var ifNil: [ default ]" or
 # "^ var ifNil: [ var := default ]", with optional trailing periods.
-# The default expression is not inspected (domains vary: Foo new,
-# Foo default, self defaultFooClass new, ...).
+# The shape of the default expression is not inspected (domains vary:
+# Foo new, Foo default, self defaultFooClass new, ...); only the getter's
+# own variable is exempted, so other inst vars used there still warn.
 _SIMPLE_GETTER_RE = re.compile(
     r"\[?\s*\^\s*(?P<var>[A-Za-z_][A-Za-z0-9_]*)"
-    r"(?:\s+ifNil:\s*\[\s*(?:(?P=var)\s*:=\s*)?.+\])?"
+    r"(?:\s+ifNil:\s*\[.+\])?"
     r"\s*\.?\s*\]?",
     re.DOTALL,
 )
+
+
+def _category_matches(cat_lower: str, token: str) -> bool:
+    """Return True if token is a hyphen-delimited part of a lowercased category."""
+    return re.search(rf"(^|-){token}($|-)", cat_lower) is not None
 
 
 def _sanitize_body(body_text: str) -> str:
@@ -731,20 +737,17 @@ class TonelCSTLinter:
             return []
 
         cat_lower = category.lower()
-        is_accessing = re.search(r"(^|-)accessing($|-)", cat_lower) is not None
-        is_initializing = "initializ" in cat_lower
-        if is_accessing or is_initializing:
+        if _category_matches(cat_lower, "accessing") or "initializ" in cat_lower:
             return []
-
-        is_testing = re.search(r"(^|-)testing($|-)", cat_lower) is not None
-        if is_testing:
-            body_text = body_node.text.decode("utf-8") if body_node.text else ""
-            m = _SIMPLE_GETTER_RE.fullmatch(_sanitize_body(body_text).strip())
-            if m and m.group("var") in inst_vars:
-                return []
 
         excluded = _method_formal_names(method_ref_node) | _temporary_names(body_node)
         accessed = _collect_direct_inst_var_accesses(body_node, inst_vars, excluded)
+
+        if _category_matches(cat_lower, "testing"):
+            body_text = body_node.text.decode("utf-8") if body_node.text else ""
+            m = _SIMPLE_GETTER_RE.fullmatch(_sanitize_body(body_text).strip())
+            if m:
+                accessed.discard(m.group("var"))
 
         return [
             LintIssue(

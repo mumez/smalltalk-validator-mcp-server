@@ -98,7 +98,7 @@ ______________________________________________________________________
 Triggers when an instance method reads or writes an instance variable directly (without going through an accessor) outside of `accessing` or `initializing` categories.
 
 - Only applies to instance methods; class methods are exempt.
-- In the `testing` category, simple getters are exempt: `^ var`, `^ var ifNil: [ default ]`, and `^ var ifNil: [ var := default ]`. Any other direct access in `testing` (e.g. SUnit test methods) still triggers the warning.
+- In the `testing` category, simple getters are exempt: `^ var`, `^ var ifNil: [ default ]`, and `^ var ifNil: [ var := default ]` do not warn for `var` itself. Any other direct access in `testing` — including other instance variables used in the `ifNil:` block, or SUnit test methods — still triggers the warning.
 - Instance variables shadowed by a method argument, temporary, or block argument of the same name are excluded.
 
 Suggestion: use accessor messages (`self name: 'foo'` / `^ self name`) instead.

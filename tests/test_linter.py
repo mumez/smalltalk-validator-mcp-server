@@ -662,6 +662,27 @@ class TestDirectAccessCheck:
             issues = self._direct_access_issues(self._lint(content))
             assert len(issues) == 0, default
 
+    def test_warns_for_other_inst_var_in_getter_default_in_testing_category(self):
+        for default in (
+            "other := false",
+            "other",
+            "amount := false. other := true",
+            "amount := other",
+        ):
+            content = (
+                "Class {\n"
+                "    #name : #MyClass,\n"
+                "    #superclass : #Object,\n"
+                "    #instVars : [ 'amount', 'other' ],\n"
+                "    #category : #SomePackage\n"
+                "}\n"
+                "\n"
+            ) + self._method_in_category("testing", f"^ amount ifNil: [ {default} ]")
+            issues = self._direct_access_issues(self._lint(content))
+            assert [i.message for i in issues] == [
+                "Direct access to 'other' (use self other)"
+            ], default
+
     def test_no_warning_for_simple_getter_in_quoted_testing_category(self):
         content = (
             self._CLASS_WITH_INST_VAR + "{ #category : 'testing' }\n"
