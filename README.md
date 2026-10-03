@@ -182,7 +182,8 @@ result = lint_tonel_smalltalk_from_file("/path/to/MyClass.st")
 #       "message": "Method 'longMethod' long: 18 lines (recommended: 15)",
 #       "class_name": "MyClass",
 #       "selector": "longMethod",
-#       "is_class_method": false
+#       "is_class_method": false,
+#       "reference_url": "https://github.com/mumez/smalltalk-validator-mcp-server/blob/main/docs/lint-checks.md#method-too-long"
 #     }
 #   ],
 #   "issues_count": 1,
