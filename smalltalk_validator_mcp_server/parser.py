@@ -166,10 +166,14 @@ class TonelTreeSitterParser:
         return self.parse(content)
 
 
-# Synthetic Tonel wrapper for method-body-only validation.
-_METHOD_PREFIX = "Class { #name : #__Temp__ }\n\n__Temp__ >> __method__ [\n"
-_METHOD_SUFFIX = "\n]\n"
-_METHOD_PREFIX_BYTES = len(_METHOD_PREFIX.encode("utf-8"))
+# Synthetic Tonel wrappers for standalone method validation. The body-only
+# form supplies its own selector; the selector form takes the selector from the
+# first line of the input and inserts the opening bracket right after it.
+_CLASS_PREFIX = "Class { #name : #__Temp__ }\n\n__Temp__ >> "
+_BODY_ONLY_PREFIX = (_CLASS_PREFIX + "__method__ [\n").encode("utf-8")
+_SELECTOR_PREFIX = _CLASS_PREFIX.encode("utf-8")
+_SELECTOR_OPEN = b" ["
+_METHOD_SUFFIX = b"\n]\n"
 
 
 def _byte_offset_to_point(source: bytes, offset: int) -> list[int]:
@@ -179,33 +183,84 @@ def _byte_offset_to_point(source: bytes, offset: int) -> list[int]:
     return [row, offset - line_start]
 
 
+def _selector_line_end(source: bytes) -> int | None:
+    """Return the end offset of the first non-blank line, if a body follows it."""
+    stripped = source.lstrip()
+    end = source.find(b"\n", len(source) - len(stripped))
+    return end if end >= 0 else None
+
+
 class SmalltalkMethodParser:
-    """Validates a standalone Smalltalk method body by wrapping it in synthetic Tonel."""
+    """Validates a standalone Smalltalk method by wrapping it in synthetic Tonel.
+
+    The input may be either a method body (temporaries, pragmas and statements)
+    or a full method source whose first line is the selector (method pattern).
+    The body-only form is tried first; the selector form is used as a fallback.
+    Because of that order, "has_selector" reports which form was used, not what
+    the caller intended: a method source whose lines also form a valid body
+    (e.g. "foo" followed by "foo bar") is reported with has_selector False.
+    """
 
     def __init__(self) -> None:
         self._parser = _make_parser()
 
-    def parse(self, method_body_content: str) -> dict[str, Any]:
-        body = method_body_content.encode("utf-8")
-        wrapped = _METHOD_PREFIX.encode("utf-8") + body + _METHOD_SUFFIX.encode("utf-8")
-        tree = self._parser.parse(wrapped)
-        # The wrapper itself is valid, so any error in the tree is caused by the
-        # body. Errors are not always under method_body: when the body cannot be
-        # parsed, recovery may attach them to method_definition or source_file.
-        errors = [
-            self._make_body_error_dict(node, body)
-            for node in _iter_error_nodes(tree.root_node)
-        ]
-        return {"valid": len(errors) == 0, "errors": errors}
+    def parse(self, method_content: str) -> dict[str, Any]:
+        source = method_content.encode("utf-8")
+        body_errors = self._parse_wrapped(source, _BODY_ONLY_PREFIX, 0, b"")
+        if not body_errors:
+            return {"valid": True, "errors": [], "has_selector": False}
 
-    def _make_body_error_dict(self, node, body: bytes) -> dict[str, Any]:
-        """Build an error dict with the node's range clipped to the method body."""
-        start = min(max(node.start_byte - _METHOD_PREFIX_BYTES, 0), len(body))
-        end = min(max(node.end_byte - _METHOD_PREFIX_BYTES, start), len(body))
-        error = _make_error_dict(node)
-        error.update(
-            start_point=_byte_offset_to_point(body, start),
-            end_point=_byte_offset_to_point(body, end),
-            text=body[start:end].decode("utf-8", errors="replace"),
+        selector_end = _selector_line_end(source)
+        if selector_end is not None:
+            selector_errors = self._parse_wrapped(
+                source, _SELECTOR_PREFIX, selector_end, _SELECTOR_OPEN
+            )
+            # Prefer the form that parses further, i.e. whose first error starts
+            # later. Points are [row, column] lists, so the comparison is
+            # row-major. Errors after the first are ignored: they are often
+            # recovery noise caused by the first one. Ties go to the body-only
+            # form.
+            if (
+                not selector_errors
+                or selector_errors[0]["start_point"] > body_errors[0]["start_point"]
+            ):
+                return {
+                    "valid": not selector_errors,
+                    "errors": selector_errors,
+                    "has_selector": True,
+                }
+
+        return {"valid": False, "errors": body_errors, "has_selector": False}
+
+    def _parse_wrapped(
+        self, source: bytes, prefix: bytes, insert_at: int, inserted: bytes
+    ) -> list[dict[str, Any]]:
+        """Parse *source* wrapped in Tonel, with *inserted* placed at *insert_at*.
+
+        The wrapper itself is valid, so any error in the tree is caused by the
+        source. Errors are not always under method_body: when the body cannot be
+        parsed, recovery may attach them to method_definition or source_file.
+        """
+        wrapped = (
+            prefix + source[:insert_at] + inserted + source[insert_at:] + _METHOD_SUFFIX
         )
-        return error
+        tree = self._parser.parse(wrapped)
+
+        def to_source_offset(offset: int) -> int:
+            offset -= len(prefix)
+            if offset > insert_at:
+                offset = max(offset - len(inserted), insert_at)
+            return min(max(offset, 0), len(source))
+
+        errors = []
+        for node in _iter_error_nodes(tree.root_node):
+            start = to_source_offset(node.start_byte)
+            end = max(to_source_offset(node.end_byte), start)
+            error = _make_error_dict(node)
+            error.update(
+                start_point=_byte_offset_to_point(source, start),
+                end_point=_byte_offset_to_point(source, end),
+                text=source[start:end].decode("utf-8", errors="replace"),
+            )
+            errors.append(error)
+        return errors

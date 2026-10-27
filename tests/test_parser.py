@@ -68,11 +68,65 @@ class TestSmalltalkMethodParser:
         assert result["valid"] is False
         assert [error["type"] for error in result["errors"]] == ["MISSING"]
 
-    def test_body_with_selector_is_invalid(self):
-        """The selector line is supplied by the wrapper, not the body."""
-        result = SmalltalkMethodParser().parse("foo\n    ^ 1 + 2")
+    def test_valid_body_has_no_selector(self):
+        result = SmalltalkMethodParser().parse("^ self name asUppercase")
+
+        assert result["has_selector"] is False
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "name\n    ^ self name asUppercase",
+            "+ other\n    ^ other",
+            "at: index put: value\n    ^ value",
+            "printOn: aStream\n    aStream nextPutAll: 'x'",
+            "bar: x\n    <primitive: 1>\n    | t |\n    t := x.\n    ^ t",
+            "\n  foo\n    ^ 1 + 2",
+        ],
+    )
+    def test_valid_source_with_selector(self, source):
+        result = SmalltalkMethodParser().parse(source)
+
+        assert result["valid"] is True
+        assert result["errors"] == []
+        assert result["has_selector"] is True
+
+    def test_source_that_is_also_a_valid_body_has_no_selector(self):
+        """The body-only form wins whenever it parses, whatever the intent."""
+        result = SmalltalkMethodParser().parse("foo\n    foo bar")
+
+        assert result["valid"] is True
+        assert result["has_selector"] is False
+
+    def test_error_location_with_selector_is_relative_to_source(self):
+        result = SmalltalkMethodParser().parse("at: index put: value\n    ^ value +")
+
+        assert result["has_selector"] is True
+        assert result["errors"] == [
+            {
+                "type": "ERROR",
+                "start_point": [1, 12],
+                "end_point": [1, 13],
+                "text": "+",
+                "parent_type": "method_definition",
+                "context": None,
+            }
+        ]
+
+    def test_invalid_selector_line(self):
+        result = SmalltalkMethodParser().parse("foo:\n    ^ 1")
 
         assert result["valid"] is False
+        assert result["has_selector"] is True
+        assert result["errors"][0]["start_point"] == [0, 4]
+
+    def test_body_only_errors_preferred_on_tie(self):
+        """Without a later error from the selector form, body-only errors win."""
+        result = SmalltalkMethodParser().parse("^ 3 +")
+
+        assert result["valid"] is False
+        assert result["has_selector"] is False
+        assert result["errors"][0]["text"] == "+"
 
     def test_error_location_is_relative_to_body(self):
         result = SmalltalkMethodParser().parse("| t |\nt := 1.\n^ t +")
