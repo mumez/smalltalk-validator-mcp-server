@@ -23,10 +23,10 @@ app = FastMCP("smalltalk-validator-mcp-server")
     "validate_tonel_smalltalk_from_file",
     annotations=ToolAnnotations(
         title="Validate Tonel Smalltalk File",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 def validate_tonel_smalltalk_from_file(
@@ -50,10 +50,10 @@ def validate_tonel_smalltalk_from_file(
     "validate_tonel_smalltalk",
     annotations=ToolAnnotations(
         title="Validate Tonel Smalltalk Content",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 def validate_tonel_smalltalk(
@@ -77,10 +77,10 @@ def validate_tonel_smalltalk(
     "validate_smalltalk_method_body",
     annotations=ToolAnnotations(
         title="Validate Smalltalk Method Body",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 def validate_smalltalk_method_body(
@@ -102,10 +102,10 @@ def validate_smalltalk_method_body(
     "lint_tonel_smalltalk_from_file",
     annotations=ToolAnnotations(
         title="Lint Tonel Smalltalk File",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 def lint_tonel_smalltalk_from_file(_: Context, file_path: str) -> dict[str, Any]:
@@ -125,10 +125,10 @@ def lint_tonel_smalltalk_from_file(_: Context, file_path: str) -> dict[str, Any]
     "lint_tonel_smalltalk",
     annotations=ToolAnnotations(
         title="Lint Tonel Smalltalk Content",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 def lint_tonel_smalltalk(_: Context, file_content: str) -> dict[str, Any]:
