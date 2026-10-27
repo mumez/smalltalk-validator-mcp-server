@@ -46,11 +46,12 @@ class TestSmalltalkMethodParser:
             '"unterminated',
         ],
     )
-    def test_invalid_body_reports_error(self, body):
+    def test_invalid_body_reports_one_error(self, body):
+        """One defect is reported as one error, even if recovery nests ERRORs."""
         result = SmalltalkMethodParser().parse(body)
 
         assert result["valid"] is False
-        assert any(error["type"] == "ERROR" for error in result["errors"])
+        assert [error["type"] for error in result["errors"]] == ["ERROR"]
 
     @pytest.mark.parametrize(
         "body",
@@ -61,11 +62,11 @@ class TestSmalltalkMethodParser:
             "| a ^ a",
         ],
     )
-    def test_invalid_body_reports_missing(self, body):
+    def test_invalid_body_reports_one_missing(self, body):
         result = SmalltalkMethodParser().parse(body)
 
         assert result["valid"] is False
-        assert any(error["type"] == "MISSING" for error in result["errors"])
+        assert [error["type"] for error in result["errors"]] == ["MISSING"]
 
     def test_body_with_selector_is_invalid(self):
         """The selector line is supplied by the wrapper, not the body."""
@@ -92,10 +93,19 @@ class TestSmalltalkMethodParser:
         result = SmalltalkMethodParser().parse("^ (")
 
         assert result["valid"] is False
-        for error in result["errors"]:
-            assert error["start_point"] == [0, 0]
-            assert error["end_point"] == [0, 3]
-            assert error["text"] == "^ ("
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["start_point"] == [0, 0]
+        assert result["errors"][0]["end_point"] == [0, 3]
+        assert result["errors"][0]["text"] == "^ ("
+
+    def test_error_column_is_byte_based(self):
+        """Columns are byte offsets (as in tree-sitter), not character offsets."""
+        result = SmalltalkMethodParser().parse("^ 'あいう' +")
+
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["start_point"] == [0, 14]
+        assert result["errors"][0]["end_point"] == [0, 15]
+        assert result["errors"][0]["text"] == "+"
 
 
 class TestTonelTreeSitterParser:
@@ -116,6 +126,15 @@ class TestTonelTreeSitterParser:
         assert result["valid"] is False
         assert result["errors"][0]["type"] == "MISSING"
         assert result["errors"][0]["context"] == "Foo >> bar"
+
+    def test_nested_errors_reported_once(self):
+        result = TonelTreeSitterParser().parse(
+            _CLASS_HEADER + "Foo >> bar [\n\t^ 'abc\n]\n"
+        )
+
+        assert result["valid"] is False
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["type"] == "ERROR"
 
     def test_missing_node_ignored_in_tonel_only_mode(self):
         result = TonelTreeSitterParser(ignore_method_body_errors=True).parse(

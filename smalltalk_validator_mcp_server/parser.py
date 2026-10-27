@@ -65,15 +65,27 @@ def _make_error_dict(node, context: str | None = None) -> dict[str, Any]:
     }
 
 
+def _iter_error_nodes(node):
+    """Yield the outermost ERROR/MISSING nodes in the CST.
+
+    Error recovery can nest ERROR nodes (e.g. an unterminated string inside an
+    ERROR spanning the whole method), so descendants of an error node are not
+    yielded: one defect is reported as one error.
+    """
+    if _is_error_node(node):
+        yield node
+        return
+    for child in node.children:
+        yield from _iter_error_nodes(child)
+
+
 def _collect_errors(node, ignore_method_body: bool = False) -> list[dict[str, Any]]:
     """Collect ERROR/MISSING nodes from the CST, returning structured error dicts."""
-    errors: list[dict[str, Any]] = []
-    if _is_error_node(node):
-        if not (ignore_method_body and _is_inside_method_body(node)):
-            errors.append(_make_error_dict(node, context=_resolve_context(node)))
-    for child in node.children:
-        errors.extend(_collect_errors(child, ignore_method_body))
-    return errors
+    return [
+        _make_error_dict(error_node, context=_resolve_context(error_node))
+        for error_node in _iter_error_nodes(node)
+        if not (ignore_method_body and _is_inside_method_body(error_node))
+    ]
 
 
 def _ston_map_get(ston_map_node, key: str):
@@ -182,25 +194,18 @@ class SmalltalkMethodParser:
         # parsed, recovery may attach them to method_definition or source_file.
         errors = [
             self._make_body_error_dict(node, body)
-            for node in self._error_nodes(tree.root_node)
+            for node in _iter_error_nodes(tree.root_node)
         ]
         return {"valid": len(errors) == 0, "errors": errors}
-
-    def _error_nodes(self, node) -> list:
-        nodes = [node] if _is_error_node(node) else []
-        for child in node.children:
-            nodes.extend(self._error_nodes(child))
-        return nodes
 
     def _make_body_error_dict(self, node, body: bytes) -> dict[str, Any]:
         """Build an error dict with the node's range clipped to the method body."""
         start = min(max(node.start_byte - _METHOD_PREFIX_BYTES, 0), len(body))
         end = min(max(node.end_byte - _METHOD_PREFIX_BYTES, start), len(body))
-        return {
-            "type": _error_type(node),
-            "start_point": _byte_offset_to_point(body, start),
-            "end_point": _byte_offset_to_point(body, end),
-            "text": body[start:end].decode("utf-8", errors="replace"),
-            "parent_type": node.parent.type if node.parent else None,
-            "context": None,
-        }
+        error = _make_error_dict(node)
+        error.update(
+            start_point=_byte_offset_to_point(body, start),
+            end_point=_byte_offset_to_point(body, end),
+            text=body[start:end].decode("utf-8", errors="replace"),
+        )
+        return error
