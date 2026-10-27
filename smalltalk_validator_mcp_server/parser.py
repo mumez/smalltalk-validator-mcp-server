@@ -40,29 +40,52 @@ def _resolve_context(node) -> str | None:
     return None
 
 
-def _make_error_dict(
-    node, row_offset: int = 0, context: str | None = None
-) -> dict[str, Any]:
+def _is_error_node(node) -> bool:
+    """Return True for ERROR nodes and for MISSING nodes inserted by recovery.
+
+    MISSING nodes keep the type of the expected token (e.g. "]"), so they must
+    be detected via is_missing rather than by type.
+    """
+    return node.is_error or node.is_missing
+
+
+def _error_type(node) -> str:
+    return "MISSING" if node.is_missing else node.type
+
+
+def _make_error_dict(node, context: str | None = None) -> dict[str, Any]:
     """Build a structured error dict from an ERROR/MISSING node."""
     return {
-        "type": node.type,
-        "start_point": [node.start_point[0] - row_offset, node.start_point[1]],
-        "end_point": [node.end_point[0] - row_offset, node.end_point[1]],
+        "type": _error_type(node),
+        "start_point": [node.start_point[0], node.start_point[1]],
+        "end_point": [node.end_point[0], node.end_point[1]],
         "text": node.text.decode("utf-8") if node.text else "",
         "parent_type": node.parent.type if node.parent else None,
         "context": context,
     }
 
 
+def _iter_error_nodes(node):
+    """Yield the outermost ERROR/MISSING nodes in the CST.
+
+    Error recovery can nest ERROR nodes (e.g. an unterminated string inside an
+    ERROR spanning the whole method), so descendants of an error node are not
+    yielded: one defect is reported as one error.
+    """
+    if _is_error_node(node):
+        yield node
+        return
+    for child in node.children:
+        yield from _iter_error_nodes(child)
+
+
 def _collect_errors(node, ignore_method_body: bool = False) -> list[dict[str, Any]]:
     """Collect ERROR/MISSING nodes from the CST, returning structured error dicts."""
-    errors: list[dict[str, Any]] = []
-    if node.type in ("ERROR", "MISSING"):
-        if not (ignore_method_body and _is_inside_method_body(node)):
-            errors.append(_make_error_dict(node, context=_resolve_context(node)))
-    for child in node.children:
-        errors.extend(_collect_errors(child, ignore_method_body))
-    return errors
+    return [
+        _make_error_dict(error_node, context=_resolve_context(error_node))
+        for error_node in _iter_error_nodes(node)
+        if not (ignore_method_body and _is_inside_method_body(error_node))
+    ]
 
 
 def _ston_map_get(ston_map_node, key: str):
@@ -143,43 +166,101 @@ class TonelTreeSitterParser:
         return self.parse(content)
 
 
-# Synthetic Tonel wrapper for method-body-only validation.
-# 3 lines of prefix keep column numbers intact for error reporting.
-_METHOD_PREFIX = "Class { #name : #__Temp__ }\n\n__Temp__ >> __method__ [\n"
-_METHOD_PREFIX_ROWS = _METHOD_PREFIX.count("\n")  # == 3
+# Synthetic Tonel wrappers for standalone method validation. The body-only
+# form supplies its own selector; the selector form takes the selector from the
+# first line of the input and inserts the opening bracket right after it.
+_CLASS_PREFIX = "Class { #name : #__Temp__ }\n\n__Temp__ >> "
+_BODY_ONLY_PREFIX = (_CLASS_PREFIX + "__method__ [\n").encode("utf-8")
+_SELECTOR_PREFIX = _CLASS_PREFIX.encode("utf-8")
+_SELECTOR_OPEN = b" ["
+_METHOD_SUFFIX = b"\n]\n"
+
+
+def _byte_offset_to_point(source: bytes, offset: int) -> list[int]:
+    """Convert a byte offset in *source* to a [row, column] point."""
+    row = source.count(b"\n", 0, offset)
+    line_start = source.rfind(b"\n", 0, offset) + 1
+    return [row, offset - line_start]
+
+
+def _selector_line_end(source: bytes) -> int | None:
+    """Return the end offset of the first non-blank line, if a body follows it."""
+    stripped = source.lstrip()
+    end = source.find(b"\n", len(source) - len(stripped))
+    return end if end >= 0 else None
 
 
 class SmalltalkMethodParser:
-    """Validates a standalone Smalltalk method body by wrapping it in synthetic Tonel."""
+    """Validates a standalone Smalltalk method by wrapping it in synthetic Tonel.
+
+    The input may be either a method body (temporaries, pragmas and statements)
+    or a full method source whose first line is the selector (method pattern).
+    The body-only form is tried first; the selector form is used as a fallback.
+    Because of that order, "has_selector" reports which form was used, not what
+    the caller intended: a method source whose lines also form a valid body
+    (e.g. "foo" followed by "foo bar") is reported with has_selector False.
+    """
 
     def __init__(self) -> None:
         self._parser = _make_parser()
 
-    def parse(self, method_body_content: str) -> dict[str, Any]:
-        wrapped = _METHOD_PREFIX + method_body_content + "\n]\n"
-        tree = self._parser.parse(wrapped.encode("utf-8"))
-        errors = self._method_body_errors(tree.root_node)
-        return {"valid": len(errors) == 0, "errors": errors}
+    def parse(self, method_content: str) -> dict[str, Any]:
+        source = method_content.encode("utf-8")
+        body_errors = self._parse_wrapped(source, _BODY_ONLY_PREFIX, 0, b"")
+        if not body_errors:
+            return {"valid": True, "errors": [], "has_selector": False}
 
-    def _method_body_errors(self, root) -> list[dict[str, Any]]:
-        method_body = self._find_method_body(root)
-        if method_body is None:
-            return []
-        return self._errors_under(method_body)
+        selector_end = _selector_line_end(source)
+        if selector_end is not None:
+            selector_errors = self._parse_wrapped(
+                source, _SELECTOR_PREFIX, selector_end, _SELECTOR_OPEN
+            )
+            # Prefer the form that parses further, i.e. whose first error starts
+            # later. Points are [row, column] lists, so the comparison is
+            # row-major. Errors after the first are ignored: they are often
+            # recovery noise caused by the first one. Ties go to the body-only
+            # form.
+            if (
+                not selector_errors
+                or selector_errors[0]["start_point"] > body_errors[0]["start_point"]
+            ):
+                return {
+                    "valid": not selector_errors,
+                    "errors": selector_errors,
+                    "has_selector": True,
+                }
 
-    def _find_method_body(self, node):
-        if node.type == "method_body":
-            return node
-        for child in node.children:
-            result = self._find_method_body(child)
-            if result is not None:
-                return result
-        return None
+        return {"valid": False, "errors": body_errors, "has_selector": False}
 
-    def _errors_under(self, node) -> list[dict[str, Any]]:
-        errors: list[dict[str, Any]] = []
-        if node.type in ("ERROR", "MISSING"):
-            errors.append(_make_error_dict(node, row_offset=_METHOD_PREFIX_ROWS))
-        for child in node.children:
-            errors.extend(self._errors_under(child))
+    def _parse_wrapped(
+        self, source: bytes, prefix: bytes, insert_at: int, inserted: bytes
+    ) -> list[dict[str, Any]]:
+        """Parse *source* wrapped in Tonel, with *inserted* placed at *insert_at*.
+
+        The wrapper itself is valid, so any error in the tree is caused by the
+        source. Errors are not always under method_body: when the body cannot be
+        parsed, recovery may attach them to method_definition or source_file.
+        """
+        wrapped = (
+            prefix + source[:insert_at] + inserted + source[insert_at:] + _METHOD_SUFFIX
+        )
+        tree = self._parser.parse(wrapped)
+
+        def to_source_offset(offset: int) -> int:
+            offset -= len(prefix)
+            if offset > insert_at:
+                offset = max(offset - len(inserted), insert_at)
+            return min(max(offset, 0), len(source))
+
+        errors = []
+        for node in _iter_error_nodes(tree.root_node):
+            start = to_source_offset(node.start_byte)
+            end = max(to_source_offset(node.end_byte), start)
+            error = _make_error_dict(node)
+            error.update(
+                start_point=_byte_offset_to_point(source, start),
+                end_point=_byte_offset_to_point(source, end),
+                text=source[start:end].decode("utf-8", errors="replace"),
+            )
+            errors.append(error)
         return errors

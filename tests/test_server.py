@@ -211,7 +211,11 @@ class TestValidateSmalltalkMethodBody:
     def test_successful_method_validation(self, mock_parser_class):
         """Test successful method body validation."""
         mock_parser = Mock()
-        mock_parser.parse.return_value = {"valid": True, "errors": []}
+        mock_parser.parse.return_value = {
+            "valid": True,
+            "errors": [],
+            "has_selector": False,
+        }
         mock_parser_class.return_value = mock_parser
 
         method_body = "^ self name"
@@ -220,6 +224,7 @@ class TestValidateSmalltalkMethodBody:
         assert result["valid"] is True
         assert result["content_length"] == len(method_body)
         assert result["parser_type"] == "smalltalk_method"
+        assert result["has_selector"] is False
         assert "errors" not in result
         mock_parser.parse.assert_called_once_with(method_body)
 
@@ -237,7 +242,11 @@ class TestValidateSmalltalkMethodBody:
                 "context": None,
             }
         ]
-        mock_parser.parse.return_value = {"valid": False, "errors": error_list}
+        mock_parser.parse.return_value = {
+            "valid": False,
+            "errors": error_list,
+            "has_selector": False,
+        }
         mock_parser_class.return_value = mock_parser
 
         method_body = "invalid method syntax ^^"

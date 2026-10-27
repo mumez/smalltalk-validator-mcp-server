@@ -23,10 +23,10 @@ app = FastMCP("smalltalk-validator-mcp-server")
     "validate_tonel_smalltalk_from_file",
     annotations=ToolAnnotations(
         title="Validate Tonel Smalltalk File",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 def validate_tonel_smalltalk_from_file(
@@ -50,10 +50,10 @@ def validate_tonel_smalltalk_from_file(
     "validate_tonel_smalltalk",
     annotations=ToolAnnotations(
         title="Validate Tonel Smalltalk Content",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 def validate_tonel_smalltalk(
@@ -77,10 +77,10 @@ def validate_tonel_smalltalk(
     "validate_smalltalk_method_body",
     annotations=ToolAnnotations(
         title="Validate Smalltalk Method Body",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 def validate_smalltalk_method_body(
@@ -91,9 +91,16 @@ def validate_smalltalk_method_body(
 
     Args:
         method_body_content: The Smalltalk method body content as a string
+            (e.g. "^ self name asUppercase"). It may also be the full method
+            source whose first line is the selector (e.g. "printOn: aStream"
+            followed by the body lines).
 
     Returns:
-        Dictionary with validation results including success status and error details
+        Dictionary with validation results including success status and error
+        details. "has_selector" tells whether the first line was treated as the
+        method selector; when the content is also a valid body on its own, it is
+        validated as a body and "has_selector" is false. Error locations are
+        relative to the given content.
     """
     return validate_smalltalk_method_body_impl(method_body_content)
 
@@ -102,10 +109,10 @@ def validate_smalltalk_method_body(
     "lint_tonel_smalltalk_from_file",
     annotations=ToolAnnotations(
         title="Lint Tonel Smalltalk File",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 def lint_tonel_smalltalk_from_file(_: Context, file_path: str) -> dict[str, Any]:
@@ -125,10 +132,10 @@ def lint_tonel_smalltalk_from_file(_: Context, file_path: str) -> dict[str, Any]
     "lint_tonel_smalltalk",
     annotations=ToolAnnotations(
         title="Lint Tonel Smalltalk Content",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 def lint_tonel_smalltalk(_: Context, file_content: str) -> dict[str, Any]:

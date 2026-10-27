@@ -121,10 +121,12 @@ def validate_smalltalk_method_body_impl(method_body_content: str) -> dict[str, A
     Validate a Smalltalk method body for syntax correctness.
 
     Args:
-        method_body_content: The Smalltalk method body content as a string
+        method_body_content: The Smalltalk method body content as a string,
+            optionally preceded by the method selector line
 
     Returns:
-        Dictionary with validation results including success status and error details
+        Dictionary with validation results including success status, error details
+        and whether the input was validated as having a selector line
     """
     try:
         parser = SmalltalkMethodParser()
@@ -134,6 +136,7 @@ def validate_smalltalk_method_body_impl(method_body_content: str) -> dict[str, A
             "valid": parse_result["valid"],
             "content_length": len(method_body_content),
             "parser_type": "smalltalk_method",
+            "has_selector": parse_result["has_selector"],
         }
 
         if parse_result["errors"]:
