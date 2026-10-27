@@ -196,6 +196,9 @@ class SmalltalkMethodParser:
     The input may be either a method body (temporaries, pragmas and statements)
     or a full method source whose first line is the selector (method pattern).
     The body-only form is tried first; the selector form is used as a fallback.
+    Because of that order, "has_selector" reports which form was used, not what
+    the caller intended: a method source whose lines also form a valid body
+    (e.g. "foo" followed by "foo bar") is reported with has_selector False.
     """
 
     def __init__(self) -> None:
@@ -212,7 +215,11 @@ class SmalltalkMethodParser:
             selector_errors = self._parse_wrapped(
                 source, _SELECTOR_PREFIX, selector_end, _SELECTOR_OPEN
             )
-            # Prefer the form that parses further; ties go to the body-only form.
+            # Prefer the form that parses further, i.e. whose first error starts
+            # later. Points are [row, column] lists, so the comparison is
+            # row-major. Errors after the first are ignored: they are often
+            # recovery noise caused by the first one. Ties go to the body-only
+            # form.
             if (
                 not selector_errors
                 or selector_errors[0]["start_point"] > body_errors[0]["start_point"]
@@ -226,21 +233,23 @@ class SmalltalkMethodParser:
         return {"valid": False, "errors": body_errors, "has_selector": False}
 
     def _parse_wrapped(
-        self, source: bytes, prefix: bytes, split: int, insert: bytes
+        self, source: bytes, prefix: bytes, insert_at: int, inserted: bytes
     ) -> list[dict[str, Any]]:
-        """Parse *source* wrapped in Tonel, with *insert* placed at *split*.
+        """Parse *source* wrapped in Tonel, with *inserted* placed at *insert_at*.
 
         The wrapper itself is valid, so any error in the tree is caused by the
         source. Errors are not always under method_body: when the body cannot be
         parsed, recovery may attach them to method_definition or source_file.
         """
-        wrapped = prefix + source[:split] + insert + source[split:] + _METHOD_SUFFIX
+        wrapped = (
+            prefix + source[:insert_at] + inserted + source[insert_at:] + _METHOD_SUFFIX
+        )
         tree = self._parser.parse(wrapped)
 
         def to_source_offset(offset: int) -> int:
             offset -= len(prefix)
-            if offset > split:
-                offset = max(offset - len(insert), split)
+            if offset > insert_at:
+                offset = max(offset - len(inserted), insert_at)
             return min(max(offset, 0), len(source))
 
         errors = []

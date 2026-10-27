@@ -98,7 +98,9 @@ def validate_smalltalk_method_body(
     Returns:
         Dictionary with validation results including success status and error
         details. "has_selector" tells whether the first line was treated as the
-        method selector. Error locations are relative to the given content.
+        method selector; when the content is also a valid body on its own, it is
+        validated as a body and "has_selector" is false. Error locations are
+        relative to the given content.
     """
     return validate_smalltalk_method_body_impl(method_body_content)
 

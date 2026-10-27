@@ -91,6 +91,13 @@ class TestSmalltalkMethodParser:
         assert result["errors"] == []
         assert result["has_selector"] is True
 
+    def test_source_that_is_also_a_valid_body_has_no_selector(self):
+        """The body-only form wins whenever it parses, whatever the intent."""
+        result = SmalltalkMethodParser().parse("foo\n    foo bar")
+
+        assert result["valid"] is True
+        assert result["has_selector"] is False
+
     def test_error_location_with_selector_is_relative_to_source(self):
         result = SmalltalkMethodParser().parse("at: index put: value\n    ^ value +")
 

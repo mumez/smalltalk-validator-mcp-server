@@ -24,7 +24,9 @@ A simple MCP server for validating and linting Tonel formatted Smalltalk source 
 - Accepts either the method body only (temporaries, pragmas and statements) or the full
   method source starting with the selector line (unary, binary or keyword pattern)
 - The body-only form is tried first; if it fails, the first line is treated as the
-  selector. `has_selector` in the result tells which form was used
+  selector. `has_selector` in the result tells which form was used, not what the caller
+  intended: a method source whose lines also form a valid body (e.g. `foo` followed by
+  `foo bar`) is reported with `has_selector: false`
 - Error `start_point` / `end_point` are `[row, column]` relative to the given content;
   the column is a byte offset in UTF-8 (as in tree-sitter), not a character offset
 
