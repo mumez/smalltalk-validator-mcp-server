@@ -21,6 +21,10 @@ A simple MCP server for validating and linting Tonel formatted Smalltalk source 
 #### validate_smalltalk_method_body(method_body_content)
 
 - Validate a Smalltalk method body for syntax correctness
+- Pass only the method body (temporaries, pragmas and statements), without the method
+  selector line
+- Error `start_point` / `end_point` are `[row, column]` relative to the given body; the
+  column is a byte offset in UTF-8 (as in tree-sitter), not a character offset
 
 #### Validation Options
 
