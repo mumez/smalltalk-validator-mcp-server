@@ -21,10 +21,12 @@ A simple MCP server for validating and linting Tonel formatted Smalltalk source 
 #### validate_smalltalk_method_body(method_body_content)
 
 - Validate a Smalltalk method body for syntax correctness
-- Pass only the method body (temporaries, pragmas and statements), without the method
-  selector line
-- Error `start_point` / `end_point` are `[row, column]` relative to the given body; the
-  column is a byte offset in UTF-8 (as in tree-sitter), not a character offset
+- Accepts either the method body only (temporaries, pragmas and statements) or the full
+  method source starting with the selector line (unary, binary or keyword pattern)
+- The body-only form is tried first; if it fails, the first line is treated as the
+  selector. `has_selector` in the result tells which form was used
+- Error `start_point` / `end_point` are `[row, column]` relative to the given content;
+  the column is a byte offset in UTF-8 (as in tree-sitter), not a character offset
 
 #### Validation Options
 
@@ -168,6 +170,11 @@ validate_tonel_smalltalk(tonel_content)
 ```python
 method_body = "^ self name asUppercase"
 validate_smalltalk_method_body(method_body)
+# => {"valid": True, "has_selector": False, ...}
+
+method_source = "printOn: aStream\n    aStream nextPutAll: self name"
+validate_smalltalk_method_body(method_source)
+# => {"valid": True, "has_selector": True, ...}
 ```
 
 #### Lint Tonel file from filesystem

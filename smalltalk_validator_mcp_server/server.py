@@ -90,11 +90,15 @@ def validate_smalltalk_method_body(
     Validate a Smalltalk method body for syntax correctness.
 
     Args:
-        method_body_content: The Smalltalk method body content as a string,
-            without the method selector line (e.g. "^ self name asUppercase")
+        method_body_content: The Smalltalk method body content as a string
+            (e.g. "^ self name asUppercase"). It may also be the full method
+            source whose first line is the selector (e.g. "printOn: aStream"
+            followed by the body lines).
 
     Returns:
-        Dictionary with validation results including success status and error details
+        Dictionary with validation results including success status and error
+        details. "has_selector" tells whether the first line was treated as the
+        method selector. Error locations are relative to the given content.
     """
     return validate_smalltalk_method_body_impl(method_body_content)
 
