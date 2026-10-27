@@ -70,7 +70,7 @@ class TestMCPServer:
         result = asyncio.run(
             _call_tool(
                 "validate_smalltalk_method_body",
-                {"method_body_content": "foo\n    ^ 1 + 2"},
+                {"method_body_content": "^ 1 + 2"},
             )
         )
         assert result.data["valid"] is True

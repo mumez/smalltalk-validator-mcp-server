@@ -40,14 +40,25 @@ def _resolve_context(node) -> str | None:
     return None
 
 
-def _make_error_dict(
-    node, row_offset: int = 0, context: str | None = None
-) -> dict[str, Any]:
+def _is_error_node(node) -> bool:
+    """Return True for ERROR nodes and for MISSING nodes inserted by recovery.
+
+    MISSING nodes keep the type of the expected token (e.g. "]"), so they must
+    be detected via is_missing rather than by type.
+    """
+    return node.is_error or node.is_missing
+
+
+def _error_type(node) -> str:
+    return "MISSING" if node.is_missing else node.type
+
+
+def _make_error_dict(node, context: str | None = None) -> dict[str, Any]:
     """Build a structured error dict from an ERROR/MISSING node."""
     return {
-        "type": node.type,
-        "start_point": [node.start_point[0] - row_offset, node.start_point[1]],
-        "end_point": [node.end_point[0] - row_offset, node.end_point[1]],
+        "type": _error_type(node),
+        "start_point": [node.start_point[0], node.start_point[1]],
+        "end_point": [node.end_point[0], node.end_point[1]],
         "text": node.text.decode("utf-8") if node.text else "",
         "parent_type": node.parent.type if node.parent else None,
         "context": context,
@@ -57,7 +68,7 @@ def _make_error_dict(
 def _collect_errors(node, ignore_method_body: bool = False) -> list[dict[str, Any]]:
     """Collect ERROR/MISSING nodes from the CST, returning structured error dicts."""
     errors: list[dict[str, Any]] = []
-    if node.type in ("ERROR", "MISSING"):
+    if _is_error_node(node):
         if not (ignore_method_body and _is_inside_method_body(node)):
             errors.append(_make_error_dict(node, context=_resolve_context(node)))
     for child in node.children:
@@ -144,9 +155,16 @@ class TonelTreeSitterParser:
 
 
 # Synthetic Tonel wrapper for method-body-only validation.
-# 3 lines of prefix keep column numbers intact for error reporting.
 _METHOD_PREFIX = "Class { #name : #__Temp__ }\n\n__Temp__ >> __method__ [\n"
-_METHOD_PREFIX_ROWS = _METHOD_PREFIX.count("\n")  # == 3
+_METHOD_SUFFIX = "\n]\n"
+_METHOD_PREFIX_BYTES = len(_METHOD_PREFIX.encode("utf-8"))
+
+
+def _byte_offset_to_point(source: bytes, offset: int) -> list[int]:
+    """Convert a byte offset in *source* to a [row, column] point."""
+    row = source.count(b"\n", 0, offset)
+    line_start = source.rfind(b"\n", 0, offset) + 1
+    return [row, offset - line_start]
 
 
 class SmalltalkMethodParser:
@@ -156,30 +174,33 @@ class SmalltalkMethodParser:
         self._parser = _make_parser()
 
     def parse(self, method_body_content: str) -> dict[str, Any]:
-        wrapped = _METHOD_PREFIX + method_body_content + "\n]\n"
-        tree = self._parser.parse(wrapped.encode("utf-8"))
-        errors = self._method_body_errors(tree.root_node)
+        body = method_body_content.encode("utf-8")
+        wrapped = _METHOD_PREFIX.encode("utf-8") + body + _METHOD_SUFFIX.encode("utf-8")
+        tree = self._parser.parse(wrapped)
+        # The wrapper itself is valid, so any error in the tree is caused by the
+        # body. Errors are not always under method_body: when the body cannot be
+        # parsed, recovery may attach them to method_definition or source_file.
+        errors = [
+            self._make_body_error_dict(node, body)
+            for node in self._error_nodes(tree.root_node)
+        ]
         return {"valid": len(errors) == 0, "errors": errors}
 
-    def _method_body_errors(self, root) -> list[dict[str, Any]]:
-        method_body = self._find_method_body(root)
-        if method_body is None:
-            return []
-        return self._errors_under(method_body)
-
-    def _find_method_body(self, node):
-        if node.type == "method_body":
-            return node
+    def _error_nodes(self, node) -> list:
+        nodes = [node] if _is_error_node(node) else []
         for child in node.children:
-            result = self._find_method_body(child)
-            if result is not None:
-                return result
-        return None
+            nodes.extend(self._error_nodes(child))
+        return nodes
 
-    def _errors_under(self, node) -> list[dict[str, Any]]:
-        errors: list[dict[str, Any]] = []
-        if node.type in ("ERROR", "MISSING"):
-            errors.append(_make_error_dict(node, row_offset=_METHOD_PREFIX_ROWS))
-        for child in node.children:
-            errors.extend(self._errors_under(child))
-        return errors
+    def _make_body_error_dict(self, node, body: bytes) -> dict[str, Any]:
+        """Build an error dict with the node's range clipped to the method body."""
+        start = min(max(node.start_byte - _METHOD_PREFIX_BYTES, 0), len(body))
+        end = min(max(node.end_byte - _METHOD_PREFIX_BYTES, start), len(body))
+        return {
+            "type": _error_type(node),
+            "start_point": _byte_offset_to_point(body, start),
+            "end_point": _byte_offset_to_point(body, end),
+            "text": body[start:end].decode("utf-8", errors="replace"),
+            "parent_type": node.parent.type if node.parent else None,
+            "context": None,
+        }

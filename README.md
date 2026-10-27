@@ -21,6 +21,8 @@ A simple MCP server for validating and linting Tonel formatted Smalltalk source 
 #### validate_smalltalk_method_body(method_body_content)
 
 - Validate a Smalltalk method body for syntax correctness
+- Pass only the method body (temporaries, pragmas and statements), without the method
+  selector line
 
 #### Validation Options
 
